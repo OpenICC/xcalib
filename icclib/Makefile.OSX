@@ -1,0 +1,38 @@
+# MAC OSX, derived from UNIX setup
+
+SLASH     = /
+SUFLIB    = .a
+SUFOBJ    = .o
+SUFEXE    = 
+CMDSEP    = ;
+
+INCFLAG       = -I
+DEFFLAG       = -D
+UNDEFFLAG     = "-u _"
+CCOPTFLAG     = -O
+CCDEBUGFLAG   = -g
+CCPROFFLAG    = 
+LINKDEBUGFLAG = 
+LINKPROFFLAG  = 
+
+STDHDRSDEF = /usr/include
+
+MAKEU     = make
+LIBU      = ar -r
+LIBOF     = 
+RANLIB    = ranlib
+AS        = as
+CCFLAGSDEF   = -DUNIX -c
+CC        = cc $(CCFLAGS) $(INCFLAG)$(STDHDRS)
+CCOF      = -o
+LINKFLAGSDEF = -lm
+LINKLIBS  = 
+LINK      = cc $(LINKFLAGS) $(LINKLIBS)
+LINKOF    = -o 
+
+.SUFFIXES:
+.SUFFIXES: .c $(SUFLIB) $(SUFOBJ) $(SUFEXE)
+
+.c$(SUFOBJ):
+	$(CC) $(CCOF)$*$(SUFOBJ) $<
+	

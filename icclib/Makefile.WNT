@@ -1,0 +1,38 @@
+# Microsoft C++, WinNT setup
+
+SLASH     = \ 
+SUFLIB    = .lib
+SUFOBJ    = .obj
+SUFEXE    = .exe
+CMDSEP    = &
+
+INCFLAG       = /I
+DEFFLAG       = /D
+UNDEFFLAG     = "/u _"
+CCOPTFLAG     = /Ox /GB
+CCDEBUGFLAG   = /Z7 /Od
+CCPROFFLAG    = /Z7
+LINKDEBUGFLAG = /DEBUG
+LINKPROFFLAG  = /PROFILE
+
+STDHDRSDEF   = $(MSVCNT)\include
+
+MAKEU     = nmake
+LIBU      = lib
+LIBOF     = /OUT:
+RANLIB    = rem
+AS        = masm386
+CCFLAGSDEF   = /DNT /c
+CC        = cl /nologo $(CCFLAGS) $(INCFLAG)$(STDHDRS)
+CCOF      = /Fo
+LINKLIBS  = $(MSVCNT)/lib/user32.lib $(MSVCNT)/lib/gdi32.lib
+LINKFLAGSDEF = /link /INCREMENTAL:NO
+LINK      = link $(LINKFLAGS)
+LINKOF    = /OUT:
+
+.SUFFIXES:
+.SUFFIXES: .c $(SUFLIB) $(SUFOBJ) $(SUFEXE)
+
+.c$(SUFOBJ):
+	$(CC) $(CCOF)$*$(SUFOBJ) $<
+	

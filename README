@@ -1,0 +1,172 @@
+xcalib 0.3
+====================================================
+(c) 2004 Stefan Döhla <stefan@doehla.de>
+This program is GPL-licensed postcardware! More infos at end of README.
+                             """""""""""""
+
+purpose:
+--------
+  load 'vcgt'-tag of ICC profiles to X-server like MS-Windows or MacOS 
+  do it.
+
+usage:
+------
+  xcalib [-options] ICCPROFILE
+
+  where the available options are:
+    -display host:dpy       or -d
+    -screen                 or -s
+    -clear                  or -c
+    -verbose                or -v
+
+  last parameter MUST be an ICC profile containing vcgt-tag
+
+  use profiles gamma_1_0.icc and gamma_2_2.icc for testing. Profiles
+  with vcgt-tables can be created with some profile creation suites.
+
+requirements:
+-------------
+  This program is intended for X11-Servers like XFree86 that come with
+  XVidModeExtension (e.g. XFree86 4.x.x). Make sure that the extension
+  is available. Other X-servers like OpenWin do not contain XVidMode
+  stuff - so please don't ask me for support if XVidMode isn't
+  supported.
+  
+  You need a profile which contains the 'vcgt' tag to achieve
+  monitor calibration. You can create it with some commercial
+  windows profile creation programs or use the bundled ones from Bruce
+  Lindbloom (only Gamma 1.0 and 2.2).
+
+motivation:
+-----------
+  ICC profiles created and used with MS-Windows can now also be used
+  with Linux and other unixes with LCMS, Marti's ICC library. Some
+  applications can already apply profiles (even display profiles) but
+  they often use standard monitor profiles or custom profiles created
+  for a calibrated monitor.
+
+  Calibration is the motivation for xcalib. Calibration brings your
+  monitor to a defined state. Color spaces of profiles are often only
+  valid for this defined state, which was created by a calibration.
+
+  Whenever you use a display profile, created with Gretag's
+  ProfileMaker, AdobeGamma (not that good but better than nothing) or
+  most other ICC profile creation packages, 'vcgt'-tags are included.
+  These profiles are only valid with calibration applied!
+
+  You get the point?
+
+  Once again, a profile contains mainly the characterization of a
+  device. This characterization should be constant over time for as
+  long as possible. Therefore, you need a defined state, you can return
+  to - this is the calibrated state.
+
+  Calibration linearizes your device, helps to set characteristics and
+  can be easily repeated. Repeating calibration can help you to keep
+  your profile constant (users don't need to change it).
+  
+  The current way of embedding calibration data in a profile is against
+  the theory of separating calibration from profiling - but we have to 
+  live with it since it's common. They use a tag called Video Card
+  Gamma Tag (or vcgt) in ICC-profiles that contains calibration values.
+  The calibration is applied before profile creation, the vcgt saved in
+  your profile.
+
+  So, let's repeat: We have calibration and profile creation - which
+  are not the same. But calibration helps the user in the profile
+  creation by having a linear (or linear with respect to a fixed gamma
+  value) display device.
+
+  Linux was missing a tool like 'AdobeGamma' or 'Logo Calibration
+  Loader' which applied the vcgt-tag to the video-LUT (a matrix which
+  assigns one color value to another). Under Linux we can not set the
+  video-LUT itself but a X-server gamma ramp (which does practically
+  the same).
+
+  Applying gamma ramps in the video-LUT has one big advantage: If used
+  with proper values, all applications benefit from a monitor in a
+  defined/calibrated state - although not using color management!
+
+  But keep the drawback in mind: You will loose some resolution by
+  using a tool like AdobeGamme oder xcalib. This may leed to
+  posterization artifacts on your display (but doesn't affect
+  printouts). You should tweak your monitor for perfect linearization
+  as much as possible - the remaining tweaks might be done by xcalib.
+
+  If you want to come around that drawback: bug your video card vendor
+  and ask for >8bit LUTs (plus LUTs for every output connector).
+
+limitations:
+------------
+  Not all XFree video card drivers do allow changing the gamma ramps.
+  And video cards are often having only one LUT for all outputs -
+  although they are dual-head models.
+
+  If you see both/only one/no display changing it's behaviour, test if
+  it's a bug of xcalib by cross-checking with the 'xgamma' tool that
+  comes with every XFree86 distribution.
+  
+history:
+--------
+  0.3:
+    - raise error if no vcg-tag available
+    - profile no more a necessary parameter after -c and -h option
+    - some code cleanup
+
+  0.2: public pre-release
+    - added option to reset gamma table to system default (gamma 1.0)
+    - screen and display can be selected now
+    - as system gamma for Linux, 1/0.45 = 2.222 is assumed
+    - bugfixes
+
+  0.1:
+    - initial version with vcg-table and vcg-formula working
+
+todo:
+-----
+  - gamma limits of vcgt-spec need to be implemented
+  - further code review for memory leaks
+  - use platform independent types for better portability
+  - use lcms instead of icclib: worse vcgt-parsing but functions
+    for gamma ramp building and smoothing
+
+bugs:
+-----
+  if not already mentioned in this README, contact the author if you
+  find bugs in this software.
+
+authors:
+--------
+  Stefan Döhla <stefan@doehla.de>
+
+thanks:
+-------
+  Graeme Gill for his icclib which I use to parse ICC profiles
+  Kai-Uwe Behrmann for his ideas and alpha-testing
+  RRZE (Regionales Rechenzentrum Erlangen) which employed me to ensure
+    constant color quality for their large-format-printers and led me
+    to color-management using ICC profiles
+  The X11-team for implementing the gamma ramps (but they weren't
+    used!?)
+  Gretag/Logosoft for their ProfileMaker software which my employee
+    bought - and MonitorCalibrationTester, to debug vcgt-stuff on Win32
+  Marti Maria and his lcms-community which led me to the vision of
+    having xcalib
+  Bruce Lindbloom for his ICC-profiles using vcg-formulae.
+
+license:
+--------
+  You should have received a copy of the GPL together with this
+  software. Furthermore, it is postcardware. So if you like this
+  program, send me a picture postcard from your country/area to:
+
+  Stefan Doehla
+  Steinselb 7
+  95100 Selb
+  GERMANY
+
+  Please write on it your name and email-address and that you use
+  xcalib-0.3 .
+
+
+EOF

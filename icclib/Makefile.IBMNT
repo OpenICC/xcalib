@@ -1,0 +1,41 @@
+# IBM C++, WinNT setup
+
+SLASH     = \ 
+SUFLIB    = .lib
+SUFOBJ    = .obj
+SUFEXE    = .exe
+CMDSEP    = &
+
+INCFLAG       = /I
+DEFFLAG       = /D
+UNDEFFLAG     = "/U _"
+CCOPTFLAG     = /O+ /qtune=pentiumpro
+CCDEBUGFLAG   = /Ti+ /O- /Oi- /DEbug
+CCPROFFLAG    = /Ti+ /Gh+
+LINKDEBUGFLAG = /DEbug
+LINKPROFFLAG  = /DE /NOE cppwpa3.obj
+
+STDHDRSDEF   = $(IPF_PATH32)\\include $(IPF_PATH32)\\sdk\\winh
+
+MAKEU     = nmake
+LIBU      = ilib /nologo
+LIBOF     = /OUT:
+RANLIB    = rem
+AS        = masm386
+CCFLAGSDEF   = /DNT /c
+CC        = icc /Q $(CCFLAGS) $(INCFLAG)$(STDHDRS)
+CCOF      = /Fo
+LINKLIBS  = $(IPF_PATH32)\\sdk\\lib\\*.lib
+LINKFLAGSDEF = 
+LINK      = ilink /NOLogo $(LINKFLAGS)
+LINKOF    = /OUT:
+
+.SUFFIXES:
+.SUFFIXES: .c $(SUFLIB) $(SUFOBJ) $(SUFEXE)
+
+.c$(SUFOBJ):
+	$(CC) $(CCOF)$*$(SUFOBJ) $<
+	
+
+
+
