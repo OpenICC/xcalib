@@ -1,6 +1,6 @@
 # Makefile for xcalib
 #
-# (c) 2004 Stefan Doehla <stefan@doehla.de>
+# (c) 2004 Stefan Doehla <stefan AT doehla DOT de>
 #
 # This program is GPL-ed postcardware! please see README
 #
@@ -20,13 +20,25 @@
 # MA 02111-1307 USA.
 #
 
-all: linux
+# there is a bool conflict between lcms and X that can be handled by
+# undeffing it at the beginning of the code
+CFLAGS = -DBOOL_CONFLICT -Os
+
+all: lo_xcalib
 	
 
-linux: xcalib.c
-	$(CC) -c xcalib.c -I./icclib -I/usr/X11R6/include
+lo_xcalib: xcalib.c
+	$(CC) $(CFLAGS) -c xcalib.c -I./icclib -I/usr/X11R6/include
+	$(CC) $(CFLAGS) -L/usr/X11R6/lib -lm -o xcalib xcalib.o -lX11 -lXxf86vm -lXext
+
+lcms_xcalib: xcalib.c
+	$(CC) $(CFLAGS) -DPATCHED_LCMS -c xcalib.c -I./icclib -I/usr/X11R6/include
+	$(CC) $(CFLAGS) -L/usr/X11R6/lib -L/usr/local/lib -lm -o xcalib xcalib.o -llcms -lX11 -lXxf86vm -lXext
+
+icclib_xcalib: xcalib.c
+	$(CC) $(CFLAGS) -DICCLIB -c xcalib.c -I./icclib -I/usr/X11R6/include
 	$(MAKE) -C icclib libicc.a
-	$(CC) -L/usr/X11R6/lib -lm -o xcalib xcalib.o icclib/libicc.a -lX11 -lXxf86vm -lXext
+	$(CC) $(CFLAGS) -L/usr/X11R6/lib -lm -o xcalib xcalib.o icclib/libicc.a -lX11 -lXxf86vm -lXext
 
 install:
 	cp ./xcalib $(DESTDIR)/usr/local/bin/

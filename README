@@ -1,28 +1,34 @@
-xcalib 0.3
+xcalib 0.4
 ====================================================
-(c) 2004 Stefan Döhla <stefan@doehla.de>
+(c) 2004-2005 Stefan Döhla <stefan AT doehla DOT de>
 This program is GPL-licensed postcardware! More infos at end of README.
                              """""""""""""
+This program comes with ABSOLUTELY NO WARRANTY! Use on your own risk.
 
 purpose:
 --------
   load 'vcgt'-tag of ICC profiles to X-server like MS-Windows or MacOS 
-  do it.
+  do it to calibrate your display.
 
 usage:
 ------
   xcalib [-options] ICCPROFILE
 
   where the available options are:
-    -display host:dpy       or -d
-    -screen                 or -s
+    -display <host:dpy>     or -d
+    -screen <screen-#>      or -s
     -clear                  or -c
+    -noaction               or -n
     -verbose                or -v
+    -help                   or -h
+    -version
 
   last parameter MUST be an ICC profile containing vcgt-tag
 
   use profiles gamma_1_0.icc and gamma_2_2.icc for testing. Profiles
   with vcgt-tables can be created with some profile creation suites.
+  Examples with tables are not bundled since most profiles are copy-
+  righted by the profiler manufacturer.
 
 requirements:
 -------------
@@ -36,6 +42,35 @@ requirements:
   monitor calibration. You can create it with some commercial
   windows profile creation programs or use the bundled ones from Bruce
   Lindbloom (only Gamma 1.0 and 2.2).
+
+install:
+--------
+  The bundled Makefile should work on most systems. It is very simple
+  and doesn't use automake/autoconf stuff. Therefore you and I (the
+  author) save time writing fancy autoconf/automake tests. One of the
+  following commands should lead you to a working version of xcalib:
+
+  $ make icclib_xcalib
+  $ make lcms_xcalib
+  $ make lo_xcalib
+
+  The make targets correspond to the possible ICC reader
+  implementations:
+  - Graeme Gill's "icclib"
+    I decided to include it in the xcalib distribution for
+    convenience reasons. It is known to work and is stable!
+  - Marti Maria's "lcms"
+    You must build it from patched sources. A patch for version 1.13
+    is included (which works for 1.14 as well).
+    Patching is done by cd'ing to the lcms source directory and
+    applying patch:   $  patch -p1 -i DIR_OF_PATCH/lcms1.13_patch
+    If you have a version of lcms on your system that came with your
+    distribution, then don't forget to make the patched library
+    active (e.g. by deinstalling the unpatched one or setting 
+    LD_LIBRARY_PATH ...)
+  - the included but limited one can read vcgt tags only and is meant
+    for low overhead or standalone versions of xcalib
+    It is in a very early stage and needs further testing!
 
 motivation:
 -----------
@@ -69,8 +104,9 @@ motivation:
   the theory of separating calibration from profiling - but we have to 
   live with it since it's common. They use a tag called Video Card
   Gamma Tag (or vcgt) in ICC-profiles that contains calibration values.
-  The calibration is applied before profile creation, the vcgt saved in
-  your profile.
+  The calibration is applied before profile creation, where the vcgt
+  will be saved in your profile for convenience reasons: All color
+  settings for the display device are stored in a common file.
 
   So, let's repeat: We have calibration and profile creation - which
   are not the same. But calibration helps the user in the profile
@@ -91,8 +127,9 @@ motivation:
   using a tool like AdobeGamme oder xcalib. This may leed to
   posterization artifacts on your display (but doesn't affect
   printouts). You should tweak your monitor for perfect linearization
-  as much as possible - the remaining tweaks might be done by xcalib.
-
+  as much as possible - the remaining tweaks might be part of a
+  profile (, the "vcgt" tag). 
+  
   If you want to come around that drawback: bug your video card vendor
   and ask for >8bit LUTs (plus LUTs for every output connector).
 
@@ -102,12 +139,33 @@ limitations:
   And video cards are often having only one LUT for all outputs -
   although they are dual-head models.
 
+  Known not-working drivers:
+  - vesa (generic driver without any calibration knobs)
+
   If you see both/only one/no display changing it's behaviour, test if
   it's a bug of xcalib by cross-checking with the 'xgamma' tool that
   comes with every XFree86 distribution.
+
+  Custom curves created with AdobeGamma do not contain these in the
+  vcgt. The vcgt contains 2.2 in all cases, whereas the real LUT-values
+  that are downloaded to the X-server are located somewhere else in the
+  system - but nobody know's where. Please tell me where they are - if
+  you find them.
   
 history:
 --------
+  0.4: 2005-01-30
+    - own implementation for parsing the vcgt tags added.
+    - switch to lcms-1.13 (patched) instead of icclib
+      use different make target to activate it
+    - LUTs and vcgt-content may now have different size.
+      LCMS does scaling for xcalib
+      this only works with a LCMS build for now
+    - much icc- and vcgt-stuff was exported to LCMS, to give every user
+      the ability to use it and to make xcalib's code less confuscating
+      apply the bundled patch to LCMS
+    - minor README changes to ease readability
+    
   0.3:
     - raise error if no vcg-tag available
     - profile no more a necessary parameter after -c and -h option
@@ -124,35 +182,48 @@ history:
 
 todo:
 -----
-  - gamma limits of vcgt-spec need to be implemented
-  - further code review for memory leaks
-  - use platform independent types for better portability
-  - use lcms instead of icclib: worse vcgt-parsing but functions
-    for gamma ramp building and smoothing
+  [ ] gamma limits of vcgt-spec need to be implemented
+  [ ] further code review for memory leaks
+  [ ] use platform independent types for better portability
+  [X] use lcms instead of icclib: worse vcgt-parsing but functions
+      for gamma ramp building and smoothing
 
 bugs:
 -----
   if not already mentioned in this README, contact the author if you
   find bugs in this software.
 
-authors:
+author:
 --------
-  Stefan Döhla <stefan@doehla.de>
+  Stefan Döhla <stefan AT doehla DOT de>
 
 thanks:
 -------
-  Graeme Gill for his icclib which I use to parse ICC profiles
+  Graeme Gill for his icclib which I used to parse ICC profiles in
+    versions prior 0.4 and which contained vcgt-parsing source code
   Kai-Uwe Behrmann for his ideas and alpha-testing
   RRZE (Regionales Rechenzentrum Erlangen) which employed me to ensure
     constant color quality for their large-format-printers and led me
     to color-management using ICC profiles
+  My current employer for giving me the bucks I need to buy
+    everyday-stuff and bringing happiness to my life
   The X11-team for implementing the gamma ramps (but they weren't
     used!?)
-  Gretag/Logosoft for their ProfileMaker software which my employee
-    bought - and MonitorCalibrationTester, to debug vcgt-stuff on Win32
+  Gretag/Logosoft for their ProfileMaker software which my former
+    employer bought - and MonitorCalibrationTester, to debug vcgt-stuff
+    on Win32
   Marti Maria and his lcms-community which led me to the vision of
     having xcalib
-  Bruce Lindbloom for his ICC-profiles using vcg-formulae.
+    Marti especially for LCMS: his lib for color-management
+  Bruce Lindbloom for his ICC-profiles using vcg-formulae
+
+links:
+------
+  The following links might lead you to other Linux color management
+  ressources:
+  http://www.littlecms.com
+  http://www.argyllcms.com
+  http://www.coloraid.de
 
 license:
 --------
@@ -166,7 +237,6 @@ license:
   GERMANY
 
   Please write on it your name and email-address and that you use
-  xcalib-0.3 .
-
+  xcalib-0.4 .
 
 EOF
