@@ -1,4 +1,4 @@
-xcalib 0.4
+xcalib 0.5
 ====================================================
 (c) 2004-2005 Stefan Döhla <stefan AT doehla DOT de>
 This program is GPL-licensed postcardware! More infos at end of README.
@@ -9,6 +9,8 @@ purpose:
 --------
   load 'vcgt'-tag of ICC profiles to X-server like MS-Windows or MacOS 
   do it to calibrate your display.
+  Versions 0.5 and higher are also usable with Microsoft Windows. They
+  can be used as a free alternative to other calibration loaders.
 
 usage:
 ------
@@ -20,15 +22,16 @@ usage:
     -clear                  or -c
     -noaction               or -n
     -verbose                or -v
+    -printramps             or -p
     -help                   or -h
     -version
 
   last parameter MUST be an ICC profile containing vcgt-tag
 
   use profiles gamma_1_0.icc and gamma_2_2.icc for testing. Profiles
-  with vcgt-tables can be created with some profile creation suites.
-  Examples with tables are not bundled since most profiles are copy-
-  righted by the profiler manufacturer.
+  with vcg-tables can be created with some profile creation suites.
+  An example profile with a vcg-table is inclued, named bluish.icc,
+  which simulates a very high whitepoint (without further intentions).
 
 requirements:
 -------------
@@ -68,10 +71,26 @@ install:
     distribution, then don't forget to make the patched library
     active (e.g. by deinstalling the unpatched one or setting 
     LD_LIBRARY_PATH ...)
+    I decided to use internal lcms gamma calculation and smoothing to
+    allow extrapolation for big video LUTs. This leads to slightly
+    different values compared to the other exact methods. The error
+    is not dramatic, but check this on your own if you really want to
+    use it and fear the introduced error.
   - the included but limited one can read vcgt tags only and is meant
-    for low overhead or standalone versions of xcalib
-    It is in a very early stage and needs further testing!
+    for low overhead or standalone versions of xcalib. It was tested
+    on little-endian systems only. Please contact me if you encounter
+    any problems.
 
+  The Win32 version was made with and tested for MinGW. Since most
+  users do not have a running MinGW environment, a binary executable is
+  provided. To compile it on yout own, the following command creates a
+  working Win32-build (tested with MSys):
+
+  $ make win_xcalib
+
+  Win32 was only tested with the internal parser - lcms and icclib
+  support are not planned.
+ 
 motivation:
 -----------
   ICC profiles created and used with MS-Windows can now also be used
@@ -113,7 +132,7 @@ motivation:
   creation by having a linear (or linear with respect to a fixed gamma
   value) display device.
 
-  Linux was missing a tool like 'AdobeGamma' or 'Logo Calibration
+  Linux was missing a tool like 'AdobeGammaLoader' or 'Logo Calibration
   Loader' which applied the vcgt-tag to the video-LUT (a matrix which
   assigns one color value to another). Under Linux we can not set the
   video-LUT itself but a X-server gamma ramp (which does practically
@@ -154,6 +173,23 @@ limitations:
   
 history:
 --------
+  0.5: 2005-03-03
+    - Win32 version added (compilable with MinGW)
+      + support for command line options as usual
+      + support for loading the default display profile
+    - fixed bug with 8bit vcg-tables in internal and icclib version
+      this applied to Pantone ColorVision Spyder profiles only
+      thanks to John Ackerman who found this really grave bug
+    - fixed bug in lcms patch regarding gamma table endpoints
+      use a unpatched version of lcms for patching
+    - introduced macro for little-endian parsing in internal parser
+    - got rid of some compiler warnings because of multi-byte
+      constants
+    - introduced variables in Makefile so that the user can set
+      locations for X11 and patched lcms libs and headers
+    - beautified code for better readability
+    - added sample profile which contains a vcg-table
+      
   0.4: 2005-01-30
     - own implementation for parsing the vcgt tags added.
     - switch to lcms-1.13 (patched) instead of icclib
@@ -184,7 +220,7 @@ todo:
 -----
   [ ] gamma limits of vcgt-spec need to be implemented
   [ ] further code review for memory leaks
-  [ ] use platform independent types for better portability
+  [x] use platform independent types for better portability
   [X] use lcms instead of icclib: worse vcgt-parsing but functions
       for gamma ramp building and smoothing
 
@@ -237,6 +273,6 @@ license:
   GERMANY
 
   Please write on it your name and email-address and that you use
-  xcalib-0.4 .
+  xcalib-0.5 .
 
 EOF

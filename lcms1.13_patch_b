@@ -58,7 +58,7 @@ diff -r -U3 lcms-1.13/NEWS lcms-1.13_vcgt/NEWS
   ===============
 diff -r -U3 lcms-1.13/src/cmsio1.c lcms-1.13_vcgt/src/cmsio1.c
 --- lcms-1.13/src/cmsio1.c	2004-05-19 11:09:56.000000000 +0200
-+++ lcms-1.13_vcgt/src/cmsio1.c	2005-01-04 23:17:09.000000000 +0100
++++ lcms-1.13_vcgt/src/cmsio1.c	2005-02-26 19:34:00.000000000 +0100
 @@ -46,6 +46,12 @@
  BOOL          LCMSEXPORT cmsTakeMediaBlackPoint(LPcmsCIEXYZ Dest, cmsHPROFILE hProfile);
  BOOL          LCMSEXPORT cmsTakeIluminant(LPcmsCIEXYZ Dest, cmsHPROFILE hProfile);
@@ -72,7 +72,7 @@ diff -r -U3 lcms-1.13/src/cmsio1.c lcms-1.13_vcgt/src/cmsio1.c
  BOOL          LCMSEXPORT cmsIsTag(cmsHPROFILE hProfile, icTagSignature sig);
  
  const char*   LCMSEXPORT cmsTakeManufacturer(cmsHPROFILE hProfile);
-@@ -1892,6 +1898,124 @@
+@@ -1892,6 +1898,130 @@
  
  }
  
@@ -171,20 +171,26 @@ diff -r -U3 lcms-1.13/src/cmsio1.c lcms-1.13_vcgt/src/cmsio1.c
 +      vcgB = cmsAllocGamma(entryCount);
 +      for(i=0; i<entryCount; i++) {
 +          Icc -> Read(&(vcgR->GammaTable[i]), entrySize, 1, Icc -> stream);
++          if(entrySize == 1)
++            vcgR->GammaTable[i] *= 0xff;
 +      }
 +      for(i=0; i<entryCount; i++) {
 +          Icc -> Read(&(vcgG->GammaTable[i]), entrySize, 1, Icc -> stream);
++          if(entrySize == 1)
++            vcgG->GammaTable[i] *= 0xff;
 +      }
 +      for(i=0; i<entryCount; i++) {
 +          Icc -> Read(&(vcgB->GammaTable[i]), entrySize, 1, Icc -> stream);
++          if(entrySize == 1)
++            vcgB->GammaTable[i] *= 0xff;
 +      }
 +      AdjustEndianessArray16(vcgR->GammaTable, entryCount);
 +      AdjustEndianessArray16(vcgG->GammaTable, entryCount);
 +      AdjustEndianessArray16(vcgB->GammaTable, entryCount);
 +
-+      rGammaTable = cmsJoinGammaEx(linearGamma, vcgR, nEntries);
-+      gGammaTable = cmsJoinGammaEx(linearGamma, vcgG, nEntries);
-+      bGammaTable = cmsJoinGammaEx(linearGamma, vcgB, nEntries);
++      rGammaTable = cmsJoinGammaEx(vcgR, linearGamma, nEntries);
++      gGammaTable = cmsJoinGammaEx(vcgG, linearGamma, nEntries);
++      bGammaTable = cmsJoinGammaEx(vcgB, linearGamma, nEntries);
 +      break;
 +  }
 +  *rVideoCardGamma=rGammaTable;

@@ -87,18 +87,17 @@ clean: clean-lib clean-progs
 	
 
 clean-lib:
-	rm libicc.a
-	rm icc.o
-	echo "icclib cleaned up"
+	rm -f libicc.a
+	rm -f icc.o
 
 clean-progs:
-	rm fbtest
-	rm iccdump
-	rm icclu
-	rm iccrw
-	rm icctest
-	rm lutest
-	rm *.o
+	rm -f fbtest
+	rm -f iccdump
+	rm -f icclu
+	rm -f iccrw
+	rm -f icctest
+	rm -f lutest
+	rm -f *.o
 
 
 

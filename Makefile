@@ -20,33 +20,54 @@
 # MA 02111-1307 USA.
 #
 
-# there is a bool conflict between lcms and X that can be handled by
-# undeffing it at the beginning of the code
-CFLAGS = -DBOOL_CONFLICT -Os
+XCALIB_VERSION = 0.5
+CFLAGS = -Os
+XINCLUDEDIR = /usr/X11R6/include
+XLIBDIR = /usr/X11R6/lib
+LCMSINCLUDEDIR = /usr/local/include
+LCMSLIBDIR = /usr/local/lib
 
+# default make target
 all: lo_xcalib
 	
 
+# low overhead version (internal parser)
 lo_xcalib: xcalib.c
-	$(CC) $(CFLAGS) -c xcalib.c -I./icclib -I/usr/X11R6/include
-	$(CC) $(CFLAGS) -L/usr/X11R6/lib -lm -o xcalib xcalib.o -lX11 -lXxf86vm -lXext
+	$(CC) $(CFLAGS) -c xcalib.c -I$(XINCLUDEDIR) -DXCALIB_VERSION=\"$(XCALIB_VERSION)\"
+	$(CC) $(CFLAGS) -L$(XLIBDIR) -lm -o xcalib xcalib.o -lX11 -lXxf86vm -lXext
 
+win_xcalib: xcalib.c
+	$(CC) $(CFLAGS) -c xcalib.c -DXCALIB_VERSION=\"$(XCALIB_VERSION)\" -DWIN32GDI
+	windres.exe resource.rc resource.o
+	$(CC) $(CFLAGS) -mwindows -lm resource.o -o xcalib xcalib.o
+
+# there is a bool conflict between lcms and X that can be handled by
+# undeffing it at the beginning of the code - therefore use -DBOOL_CONFLICT
+# as defined in the lcms patch
 lcms_xcalib: xcalib.c
-	$(CC) $(CFLAGS) -DPATCHED_LCMS -c xcalib.c -I./icclib -I/usr/X11R6/include
-	$(CC) $(CFLAGS) -L/usr/X11R6/lib -L/usr/local/lib -lm -o xcalib xcalib.o -llcms -lX11 -lXxf86vm -lXext
+	$(CC) $(CFLAGS) -DPATCHED_LCMS -DBOOL_CONFLICT -c xcalib.c -I$(XINCLUDEDIR) \
+	      -I$(LCMSINCLUDEDIR) -DXCALIB_VERSION=\"$(XCALIB_VERSION)\"
+	$(CC) $(CFLAGS) -L$(XLIBDIR) -L$(LCMSLIBDIR) -lm -o xcalib xcalib.o -llcms -lX11 -lXxf86vm -lXext
 
+# icclib version
 icclib_xcalib: xcalib.c
-	$(CC) $(CFLAGS) -DICCLIB -c xcalib.c -I./icclib -I/usr/X11R6/include
+	$(CC) $(CFLAGS) -DICCLIB -c xcalib.c -I./icclib -I$(XINCLUDEDIR) -DXCALIB_VERSION=\"$(XCALIB_VERSION)\"
 	$(MAKE) -C icclib libicc.a
-	$(CC) $(CFLAGS) -L/usr/X11R6/lib -lm -o xcalib xcalib.o icclib/libicc.a -lX11 -lXxf86vm -lXext
+	$(CC) $(CFLAGS) -L$(XLIBDIR) -lm -o xcalib xcalib.o icclib/libicc.a -lX11 -lXxf86vm -lXext
 
 install:
 	cp ./xcalib $(DESTDIR)/usr/local/bin/
 	chmod 0644 $(DESTDIR)/usr/local/bin/xcalib
 
 clean:
-	rm xcalib.o
-	rm xcalib
-	$(MAKE) -C icclib clean-lib
+	rm -f xcalib.o
+	rm -f resource.o
+	rm -f xcalib
+	rm -f xcalib.exe
+	$(MAKE) -C icclib clean
 
-
+dist:
+	cd ..
+	tar czf xcalib-source-$(XCALIB_VERSION).tar.gz xcalib-$(XCALIB_VERSION)
+	cd xcalib-$(XCALIB_VERSION)/
+	
