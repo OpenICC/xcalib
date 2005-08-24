@@ -1,6 +1,6 @@
 # Makefile for xcalib
 #
-# (c) 2004 Stefan Doehla <stefan AT doehla DOT de>
+# (c) 2004-2005 Stefan Doehla <stefan AT doehla DOT de>
 #
 # This program is GPL-ed postcardware! please see README
 #
@@ -20,12 +20,36 @@
 # MA 02111-1307 USA.
 #
 
-XCALIB_VERSION = 0.5
+#
+# the following targets are defined:
+# - lo_xcalib
+#   xcalib in its standard version (internal parser)
+# - icclib_xcalib
+#   xcalib using Graeme Gill's icclib
+# - lcms_xcalib
+#   xcalib using a patched version of Marti Maria's LCMS
+# - win_xcalib
+#   version for MS-Windows systems with MinGW (internal parser)
+# - fglrx_xcalib
+#   version for ATI's proprietary fglrx driver (internal parser)
+#
+# - clean
+#   delete all objects and binaries
+# - dist
+#   create .tar.gz archive
+#
+# if it doesn't compile right-out-of-the-box, it may be sufficient
+# to change the following variables
+
+XCALIB_VERSION = 0.6
 CFLAGS = -Os
 XINCLUDEDIR = /usr/X11R6/include
 XLIBDIR = /usr/X11R6/lib
 LCMSINCLUDEDIR = /usr/local/include
 LCMSLIBDIR = /usr/local/lib
+# for ATI's proprietary driver (must contain the header file fglrx_gamma.h)
+FGLRXINCLUDEDIR = ./fglrx
+FGLRXLIBDIR = ./fglrx
 
 # default make target
 all: lo_xcalib
@@ -35,6 +59,10 @@ all: lo_xcalib
 lo_xcalib: xcalib.c
 	$(CC) $(CFLAGS) -c xcalib.c -I$(XINCLUDEDIR) -DXCALIB_VERSION=\"$(XCALIB_VERSION)\"
 	$(CC) $(CFLAGS) -L$(XLIBDIR) -lm -o xcalib xcalib.o -lX11 -lXxf86vm -lXext
+
+fglrx_xcalib: xcalib.c
+	$(CC) $(CFLAGS) -c xcalib.c -I$(XINCLUDEDIR) -DXCALIB_VERSION=\"$(XCALIB_VERSION)\" -I$(FGLRXINCLUDEDIR) -DFGLRX
+	$(CC) $(CFLAGS) -L$(XLIBDIR) -L$(FGLRXLIBDIR) -lm -o xcalib xcalib.o -lX11 -lXxf86vm -lXext -lfglrx_gamma
 
 win_xcalib: xcalib.c
 	$(CC) $(CFLAGS) -c xcalib.c -DXCALIB_VERSION=\"$(XCALIB_VERSION)\" -DWIN32GDI
@@ -68,6 +96,6 @@ clean:
 
 dist:
 	cd ..
-	tar czf xcalib-source-$(XCALIB_VERSION).tar.gz xcalib-$(XCALIB_VERSION)
+	tar czf xcalib-source-$(XCALIB_VERSION).tar.gz xcalib-$(XCALIB_VERSION)/
 	cd xcalib-$(XCALIB_VERSION)/
 	

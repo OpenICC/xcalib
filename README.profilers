@@ -9,13 +9,22 @@ BasiCColor display:
 -------------------
 vcgt, table with 256 * 16bit entries
 
-Gretag ProfileMaker 4.1:
+Gretag/Logo ProfileMaker 4.1:
 ------------------------
 vcgt, table with 256 * 16bit entries
 
 lprof, Marti's little profiler (unmaintained):
 ----------------------------------------------
 no calibration
+
+Profile Mechanic Monitor (by Jonathan Sachs)
+--------------------------------------------
+mLUT, table with 256 * 16bit entries
+
+AdobeGamma (came with Photoshop CS)
+-----------------------------------
+vcgt, table with 256 * 16bit entries, signalled as 8bit entries!
+
 
 (c) 2005 - Stefan Doehla
 EOF

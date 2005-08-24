@@ -1,4 +1,4 @@
-xcalib 0.5
+Xcalib 0.6
 ====================================================
 (c) 2004-2005 Stefan Döhla <stefan AT doehla DOT de>
 This program is GPL-licensed postcardware! More infos at end of README.
@@ -23,13 +23,14 @@ usage:
     -noaction               or -n
     -verbose                or -v
     -printramps             or -p
+    -loss                   or -l
     -help                   or -h
     -version
 
-  last parameter MUST be an ICC profile containing vcgt-tag
+  last parameter MUST be an ICC profile containing a vcgt or mLUT tag.
 
   use profiles gamma_1_0.icc and gamma_2_2.icc for testing. Profiles
-  with vcg-tables can be created with some profile creation suites.
+  with vcg-tables can be created with most profile creation suites.
   An example profile with a vcg-table is inclued, named bluish.icc,
   which simulates a very high whitepoint (without further intentions).
 
@@ -40,6 +41,12 @@ requirements:
   is available. Other X-servers like OpenWin do not contain XVidMode
   stuff - so please don't ask me for support if XVidMode isn't
   supported.
+
+  Since version 0.5, Win32-support was added. The program will work
+  with most video cards, that have correctly implemented drivers.
+
+  As of version 0.6, a special treatment for the close-source ATI FGLRX
+  X11 driver was added. XVidMode is still required.
   
   You need a profile which contains the 'vcgt' tag to achieve
   monitor calibration. You can create it with some commercial
@@ -56,6 +63,9 @@ install:
   $ make icclib_xcalib
   $ make lcms_xcalib
   $ make lo_xcalib
+
+  $ make win_xcalib
+  $ make fglrx_xcalib
 
   The make targets correspond to the possible ICC reader
   implementations:
@@ -83,13 +93,21 @@ install:
 
   The Win32 version was made with and tested for MinGW. Since most
   users do not have a running MinGW environment, a binary executable is
-  provided. To compile it on yout own, the following command creates a
+  provided. To compile it on your own, the following command creates a
   working Win32-build (tested with MSys):
 
   $ make win_xcalib
 
   Win32 was only tested with the internal parser - lcms and icclib
   support are not planned.
+
+  For ATI's proprietary FGLRX driver for X11, a special version can be
+  built. Issue the command
+
+  $ make fglrx_xcalib
+
+  on the commandline. For now, only the internal parser can be used
+  in combination with this server backend.
  
 motivation:
 -----------
@@ -124,6 +142,7 @@ motivation:
   live with it since it's common. They use a tag called Video Card
   Gamma Tag (or vcgt) in ICC-profiles that contains calibration values.
   The calibration is applied before profile creation, where the vcgt
+  
   will be saved in your profile for convenience reasons: All color
   settings for the display device are stored in a common file.
 
@@ -160,6 +179,7 @@ limitations:
 
   Known not-working drivers:
   - vesa (generic driver without any calibration knobs)
+  - fglrx (but you can build fglrx_xcalib)
 
   If you see both/only one/no display changing it's behaviour, test if
   it's a bug of xcalib by cross-checking with the 'xgamma' tool that
@@ -169,10 +189,36 @@ limitations:
   vcgt. The vcgt contains 2.2 in all cases, whereas the real LUT-values
   that are downloaded to the X-server are located somewhere else in the
   system - but nobody know's where. Please tell me where they are - if
-  you find them.
+  you find them. A newer version of AdobeGamma (from 2003) writes a
+  vcgt tag with useful data. Nevertheless, the size field is wrong. As
+  of version 0.6, basic concealment for wrong AdobeGamma profiles
+  (created with the 2003 version) was added to the internal parser.
+
+  On Win32-systems, some drivers are not correctly implemented. E.g.
+  the NVidia Riva driver for Windows2000 and WindowsXP wrote nonsense
+  values to the video cards RAMDAC (resulting in a gray display). I
+  used for these cards an old NT-driver from a video card vendor.
+  
+  The source code became messy in the last time because of numerous
+  workarounds and a bad mixture of Win32, X11, ATI code and code for
+  the different parsers used to get the gamma ramps from the profile.
+  This makes it hard to find the important code sections for others
+  than me and might have lead to bugs or leaks. A following version
+  will most likely be ported to C++ to ease modularisation of the code
+  and allow utilization by other software.
   
 history:
 --------
+  0.6:
+    - added 0-interpolated upscaling if LUT>vcgt
+    - added reading of mLUT instead of vcgt (not memory-safe for now)
+      this is used for profiles, created by ProfileMechanic Monitor
+    - added concealment for obviously wrong profiles made by AdobeGamma
+    - added fglrx version for ATI's proprietary driver
+    - added loss calculation (option "-loss" or "-l") which shows how
+      many steps are lost by calibrating the device
+    - added limits of VideoCardGammaFormula to internal parser
+    
   0.5: 2005-03-03
     - Win32 version added (compilable with MinGW)
       + support for command line options as usual
@@ -218,11 +264,15 @@ history:
 
 todo:
 -----
-  [ ] gamma limits of vcgt-spec need to be implemented
+  [ ] integrate the _ICC_PROFILE atom
+  [ ] interpolated upscaling
+  [X] use ATI's API when using the closed-source X11 ATI driver
+  [ ] gamma limits of vcgt-spec for icclib and LCMS version
   [ ] further code review for memory leaks
   [x] use platform independent types for better portability
   [X] use lcms instead of icclib: worse vcgt-parsing but functions
       for gamma ramp building and smoothing
+  [ ] add multi-monitor support to Win32 version
 
 bugs:
 -----
@@ -260,6 +310,7 @@ links:
   http://www.littlecms.com
   http://www.argyllcms.com
   http://www.coloraid.de
+  http://www.behrmann.name
 
 license:
 --------
@@ -273,6 +324,6 @@ license:
   GERMANY
 
   Please write on it your name and email-address and that you use
-  xcalib-0.5 .
+  xcalib-0.6 .
 
 EOF

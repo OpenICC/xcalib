@@ -53,6 +53,9 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/xf86vmode.h>
+#ifdef FGLRX
+# include <fglrx_gamma.h>
+#endif
 #else
 #include <windows.h>
 #include <wingdi.h>
@@ -78,6 +81,7 @@
 
 /* the 4-byte marker for the vcgt-Tag */
 #define VCGT_TAG     0x76636774L
+#define MLUT_TAG     0x6d4c5554L
 
 #ifndef XCALIB_VERSION
 # define XCALIB_VERSION "version unknown (>0.5)"
@@ -117,9 +121,10 @@ struct xcalib_state_t {
 void
 usage (void)
 {
-  fprintf (stdout, "usage:  xcalib [-options] ICCPROFILE\n");
   fprintf (stdout, "Copyright (C) 2004-2005 Stefan Doehla <stefan AT doehla DOT de>\n");
   fprintf (stdout, "THIS PROGRAM COMES WITH ABSOLUTELY NO WARRANTY!\n");
+  fprintf (stdout, "\n");
+  fprintf (stdout, "usage:  xcalib [-options] ICCPROFILE\n");
   fprintf (stdout, "\n");
   fprintf (stdout, "where the available options are:\n");
 #ifndef WIN32GDI
@@ -130,6 +135,7 @@ usage (void)
   fprintf (stdout, "    -noaction               or -n\n");
   fprintf (stdout, "    -verbose                or -v\n");
   fprintf (stdout, "    -printramps             or -p\n");
+  fprintf (stdout, "    -loss                   or -l\n");
   fprintf (stdout, "    -help                   or -h\n");
   fprintf (stdout, "    -version\n");
   fprintf (stdout, "\n");
@@ -202,6 +208,58 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
     tagSize = BE_INT(cTmp);
     if(!bytesRead)
       goto cleanup_fileparser;
+    if(tagName == MLUT_TAG)
+    {
+      fseek(fp, 0+tagOffset, SEEK_SET);
+      message("mLUT found (Profile Mechanic)\n");
+      redRamp = (unsigned short *) malloc ((256) * sizeof (unsigned short));
+      greenRamp = (unsigned short *) malloc ((256) * sizeof (unsigned short));
+      blueRamp = (unsigned short *) malloc ((256) * sizeof (unsigned short));
+      {		  
+        for(j=0; j<256; j++) {
+          bytesRead = fread(cTmp, 1, 2, fp);
+          redRamp[j]= BE_SHORT(cTmp);
+        }
+        for(j=0; j<256; j++) {
+          bytesRead = fread(cTmp, 1, 2, fp);
+          greenRamp[j]= BE_SHORT(cTmp);
+        }
+        for(j=0; j<256; j++) {
+          bytesRead = fread(cTmp, 1, 2, fp);
+          blueRamp[j]= BE_SHORT(cTmp);
+        }
+      }
+      /* interpolate if vcgt size doesn't match video card's gamma table */
+      if(*nEntries == 256) {
+        *rRamp = redRamp;
+        *gRamp = greenRamp;
+        *bRamp = blueRamp;
+      }
+      else if(*nEntries < 256) {
+        ratio = (unsigned int)(256 / (*nEntries));
+        *rRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
+        *gRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
+        *bRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
+        for(j=0; j<*nEntries; j++) {
+          rRamp[0][j] = redRamp[ratio*j];
+          gRamp[0][j] = greenRamp[ratio*j];
+          bRamp[0][j] = blueRamp[ratio*j];
+        }
+      }
+      /* interpolation of zero order - TODO: at least bilinear */
+      else if(*nEntries > 256) {
+        ratio = (unsigned int)((*nEntries) / 256);
+        *rRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
+        *gRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
+        *bRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
+        for(j=0; j<*nEntries; j++) {
+          rRamp[0][j] = redRamp[j/ratio];
+          gRamp[0][j] = greenRamp[j/ratio];
+          bRamp[0][j] = blueRamp[j/ratio];
+        }
+      }
+      goto cleanup_fileparser;
+    }
     if(tagName == VCGT_TAG)
     {
       fseek(fp, 0+tagOffset, SEEK_SET);
@@ -245,6 +303,16 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
         uTmp = BE_INT(cTmp);
         bMax = (float)uTmp/65536.0;
 
+        if(rGamma > 5.0 || gGamma > 5.0 || bGamma > 5.0)
+          error("Gamma values out of range (> 5.0): \nR: %f \tG: %f \t B: %f",
+                rGamma, gGamma, bGamma);
+        if(rMin >= 1.0 || gMin >= 1.0 || bMin >= 1.0)
+          error("Gamma lower limit out of range (>= 1.0): \nRMin: %f \tGMin: %f \t BMin: %f",
+                rMin, gMin, bMin);
+        if(rMax > 1.0 || gMax > 1.0 || bMax > 1.0)
+          error("Gamma upper limit out of range (> 1.0): \nRMax: %f \tGMax: %f \t BMax: %f",
+                rMax, gMax, bMax);
+       
         message("Red:   Gamma %f \tMin %f \tMax %f\n", rGamma, rMin, rMax);
         message("Green: Gamma %f \tMin %f \tMax %f\n", gGamma, gMin, gMax);
         message("Blue:  Gamma %f \tMin %f \tMax %f\n", bGamma, bMin, bMax);
@@ -253,21 +321,18 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
         *gRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
         *bRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
         for(j=0; j<*nEntries; j++) {
-          rRamp[0][j] = 65563 *
-            (double) pow ((double) j /
-            (double) (*nEntries),
-            rGamma *
-            (double) SYSTEM_GAMMA);
-          gRamp[0][j] = 65563 *
-            (double) pow ((double) j /
-            (double) (*nEntries),
-            gGamma *
-            (double) SYSTEM_GAMMA);
-          bRamp[0][j] = 65563 *
-            (double) pow ((double) j /
-            (double) (*nEntries),
-            bGamma *
-            (double) SYSTEM_GAMMA);
+          rRamp[0][j] = 65536 *
+            ((double) pow ((double) j * (rMax - rMin) / (double) (*nEntries),
+                           rGamma * (double) SYSTEM_GAMMA
+                          ) + rMin);
+          gRamp[0][j] = 65536 *
+            ((double) pow ((double) j * (gMax - gMin) / (double) (*nEntries),
+                           gGamma * (double) SYSTEM_GAMMA
+                          ) + gMin);
+          bRamp[0][j] = 65536 *
+            ((double) pow ((double) j * (bMax - bMin) / (double) (*nEntries),
+                           bGamma * (double) SYSTEM_GAMMA
+                          ) + bMin);
         }
       }
       /* VideoCardGammaTable */
@@ -279,9 +344,17 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
         bytesRead = fread(cTmp, 1, 2, fp);
         entrySize = BE_SHORT(cTmp);
 
+        /* conecealment for AdobeGamma-Profiles */
+        if(tagSize == 1584) {
+          entrySize = 2;
+          numEntries = 256;
+          numChannels = 3;
+        }
+
         message ("channels:        \t%d\n", numChannels);
         message ("entry size:      \t%dbits\n",entrySize  * 8);
         message ("entries/channel: \t%d\n", numEntries);
+        message ("tag size:        \t%d\n", tagSize);
                                                 
         if(numChannels!=3)          /* assume we have always RGB */
           goto cleanup_fileparser;
@@ -327,17 +400,12 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
             }
           }
         }
+        *rRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
+        *gRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
+        *bRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
         /* interpolate if vcgt size doesn't match video card's gamma table */
-        if(*nEntries == numEntries) {
-          *rRamp = redRamp;
-          *gRamp = greenRamp;
-          *bRamp = blueRamp;
-        }
-        else if(*nEntries < numEntries) {
+        if(*nEntries <= numEntries) {
           ratio = (unsigned int)(numEntries / (*nEntries));
-          *rRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-          *gRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-          *bRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
           for(j=0; j<*nEntries; j++) {
             rRamp[0][j] = redRamp[ratio*j];
             gRamp[0][j] = greenRamp[ratio*j];
@@ -347,15 +415,15 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
         /* interpolation of zero order - TODO: at least bilinear */
         else if(*nEntries > numEntries) {
           ratio = (unsigned int)((*nEntries) / numEntries);
-          *rRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-          *gRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-          *bRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
           for(j=0; j<*nEntries; j++) {
             rRamp[0][j] = redRamp[j/ratio];
             gRamp[0][j] = greenRamp[j/ratio];
             bRamp[0][j] = blueRamp[j/ratio];
           }
         }
+        free(redRamp);
+        free(greenRamp);
+        free(blueRamp);
       }
       goto cleanup_fileparser;
     }
@@ -398,11 +466,14 @@ main (int argc, char *argv[])
 #endif
   struct xcalib_state_t * x = NULL;
   int rv = 0;
-  u_int16_t *r_ramp, *g_ramp, *b_ramp;
+  u_int16_t *r_ramp = NULL, *g_ramp = NULL, *b_ramp = NULL;
   int i;
   int clear = 0;
   int donothing = 0;
   int printramps = 0;
+  int calcloss = 0;
+  u_int16_t tmpRampVal = 0;
+  unsigned int r_res, g_res, b_res;
 
   unsigned int ramp_size = 256;
   unsigned int ramp_scaling;
@@ -413,6 +484,9 @@ main (int argc, char *argv[])
   Display *dpy = NULL;
   int screen = -1;
   char *displayname = NULL;
+#ifdef FGLRX
+  FGLRX_X11Gamma_C16native fglrx_gammaramps;
+#endif
 #else
   char win_default_profile[MAX_PATH+1];
   DWORD win_profile_len;
@@ -481,6 +555,11 @@ main (int argc, char *argv[])
       printramps = 1;
       continue;
     }
+    /* print ramps to stdout */
+    if (!strcmp (argv[i], "-l") || !strcmp (argv[i], "-loss")) {
+      calcloss = 1;
+      continue;
+    }
     /* clear gamma lut */
     if (!strcmp (argv[i], "-c") || !strcmp (argv[i], "-clear")) {
       clear = 1;
@@ -528,7 +607,10 @@ main (int argc, char *argv[])
 #ifndef WIN32GDI
   /* X11 initializing */
   if ((dpy = XOpenDisplay (displayname)) == NULL) {
-    error ("Can't open display %s", XDisplayName (displayname));
+    if(!donothing)
+      error ("Can't open display %s", XDisplayName (displayname));
+    else
+      warning("Can't open display %s", XDisplayName (displayname));
   }
   else if (screen == -1)
     screen = DefaultScreen (dpy);
@@ -538,7 +620,16 @@ main (int argc, char *argv[])
   gamma.green = 1.0;
   gamma.blue = 1.0;
   if (clear) {
+#ifndef FGLRX
     if (!XF86VidModeSetGamma (dpy, screen, &gamma)) {
+#else
+    for(i = 0; i < 256; i++) {
+      fglrx_gammaramps.RGamma[i] = i << 2;
+      fglrx_gammaramps.GGamma[i] = i << 2;
+      fglrx_gammaramps.BGamma[i] = i << 2;
+    }
+    if (!FGLRX_X11SetGammaRamp_C16native_1024(dpy, screen, -1, 256, &fglrx_gammaramps)) {
+#endif
       XCloseDisplay (dpy);
       error ("Unable to reset display gamma");
     }
@@ -546,9 +637,18 @@ main (int argc, char *argv[])
   }
   
   /* get number of entries for gamma ramps */
+#ifndef FGLRX
   if (!XF86VidModeGetGammaRampSize (dpy, screen, &ramp_size)) {
+#else
+  if (!FGLRX_X11GetGammaRampSize(dpy, screen, &ramp_size)) {
+#endif
     XCloseDisplay (dpy);
-    error ("Unable to query gamma ramp size");
+    if(!donothing)
+      error ("Unable to query gamma ramp size");
+    else {
+      warning ("Unable to query gamma ramp size");
+      ramp_size = 256;
+    }
   }
 #else
   if(!hDc)
@@ -688,17 +788,17 @@ main (int argc, char *argv[])
                 g_ramp = (unsigned short *) malloc ((ramp_size + 1) * sizeof (unsigned short));
                 b_ramp = (unsigned short *) malloc ((ramp_size + 1) * sizeof (unsigned short));
 
-                ramp_scaling = 65563 / ramp_size;
+                ramp_scaling = 65536 / ramp_size;
 
                 /* maths for gamma calculation: use system gamma as reference */
                 for (i = 0; i < ramp_size; i++) {
-                  r_ramp[i] = 65563 * (double) 
+                  r_ramp[i] = 65536 * (double) 
                     pow ((double) i / (double) ramp_size, 
                         ob->u.formula.redGamma * (double) SYSTEM_GAMMA);
-                  g_ramp[i] = 65563 * (double) 
+                  g_ramp[i] = 65536 * (double) 
                     pow ((double) i / (double) ramp_size, 
                         ob->u.formula.greenGamma * (double) SYSTEM_GAMMA);
-                  b_ramp[i] = 65563 * (double) 
+                  b_ramp[i] = 65536 * (double) 
                     pow ((double) i / (double) ramp_size,
                         ob->u.formula.blueGamma * (double) SYSTEM_GAMMA);
                 }
@@ -735,7 +835,35 @@ main (int argc, char *argv[])
       warning ("nonsense content in green gamma table");
     if (b_ramp[i + 1] < b_ramp[i])
       warning ("nonsense content in blue gamma table");
-}
+  }
+  if(calcloss) {
+    fprintf(stdout, "Resolution loss for %d entries:\n", ramp_size);
+    r_res = 0;
+    g_res = 0;
+    b_res = 0;
+    tmpRampVal = 0xffff;
+    for(i = 0; i < ramp_size; i++) {
+      if ((r_ramp[i] & 0xff00) != (tmpRampVal & 0xff00)) {
+        r_res++;
+      }
+      tmpRampVal = r_ramp[i];
+    }
+    tmpRampVal = 0xffff;
+    for(i = 0; i < ramp_size; i++) {
+      if ((g_ramp[i] & 0xff00) != (tmpRampVal & 0xff00)) {
+        g_res++;
+      }
+      tmpRampVal = g_ramp[i];
+    }
+    tmpRampVal = 0xffff;
+    for(i = 0; i < ramp_size; i++) {
+      if ((b_ramp[i] & 0xff00) != (tmpRampVal & 0xff00)) {
+        b_res++;
+      }
+      tmpRampVal = b_ramp[i];
+    }
+    fprintf(stdout, "R: %d\tG: %d\t B: %d\t colors lost\n", ramp_size - r_res, ramp_size - g_res, ramp_size - b_res );
+  }
 #ifdef WIN32GDI
   for (i = 0; i < ramp_size; i++) {
     winGammaRamp.Red[i] = r_ramp[i];
@@ -749,14 +877,24 @@ main (int argc, char *argv[])
     for(i=0; i<ramp_size; i++)
       fprintf(stdout,"%x %x %x\n", r_ramp[i], g_ramp[i], b_ramp[i]);
 
-  if(!donothing)
+  if(!donothing) {
     /* write gamma ramp to X-server */
 #ifndef WIN32GDI
+# ifdef FGLRX
+    for(i = 0; i < ramp_size; i++) {
+      fglrx_gammaramps.RGamma[i] = r_ramp[i] >> 6;
+      fglrx_gammaramps.GGamma[i] = g_ramp[i] >> 6;
+      fglrx_gammaramps.BGamma[i] = b_ramp[i] >> 6;
+    }
+    if (!FGLRX_X11SetGammaRamp_C16native_1024(dpy, screen, -1, ramp_size, &fglrx_gammaramps))
+# else
     if (!XF86VidModeSetGammaRamp (dpy, screen, ramp_size, r_ramp, g_ramp, b_ramp))
+# endif
 #else
     if (!SetDeviceGammaRamp(hDc, &winGammaRamp))
 #endif
       warning ("Unable to calibrate display");
+  }
 
 #ifdef ICCLIB
   icco->del (icco);
@@ -768,13 +906,22 @@ main (int argc, char *argv[])
     cmsFreeGamma(x->gGammaTable);
   if(x->bGammaTable!=NULL)
     cmsFreeGamma(x->bGammaTable);
+#else
+  if(r_ramp)
+    free(r_ramp);
+  if(g_ramp)
+    free(g_ramp);
+  if(b_ramp)
+    free(b_ramp);
 #endif
 
   message ("X-LUT size:      \t%d\n", ramp_size);
 
 cleanupX:
 #ifndef WIN32GDI
-  XCloseDisplay (dpy);
+  if(dpy)
+    if(!donothing)
+      XCloseDisplay (dpy);
 #endif
 
   return 0;
