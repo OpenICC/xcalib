@@ -49,35 +49,19 @@
 
 /* for X11 VidMode stuff */
 #ifndef WIN32GDI
-#include <X11/Xos.h>
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/extensions/xf86vmode.h>
-#ifdef FGLRX
-# include <fglrx_gamma.h>
-#endif
+# include <X11/Xos.h>
+# include <X11/Xlib.h>
+# include <X11/Xutil.h>
+# include <X11/extensions/xf86vmode.h>
+# ifdef FGLRX
+#  include <fglrx_gamma.h>
+# endif
 #else
-#include <windows.h>
-#include <wingdi.h>
-#endif
-
-/* for icc profile parsing */
-#ifdef ICCLIB
-# include <icc.h>
-#elif PATCHED_LCMS
-# include <lcms.h>
+# include <windows.h>
+# include <wingdi.h>
 #endif
 
 #include <math.h>
-
-/* system gamma is 2.2222 on most UNIX systems
- * MacOS uses 1.8, MS-Windows 2.2
- * XFree gamma 1.0 is gamma 2.222 at the output*/
-#ifndef WIN32GDI
-#define SYSTEM_GAMMA  2.222222
-#else
-#define SYSTEM_GAMMA  2.2
-#endif
 
 /* the 4-byte marker for the vcgt-Tag */
 #define VCGT_TAG     0x76636774L
@@ -87,20 +71,21 @@
 # define XCALIB_VERSION "version unknown (>0.5)"
 #endif
 
+/* a limit to check the table sizes (of corrupted profiles) */
+#ifndef MAX_TABLE_SIZE
+# define MAX_TABLE_SIZE   2e10
+#endif
+
 #ifdef WIN32GDI
-#define u_int16_t  WORD
+# define u_int16_t  WORD
 #endif
 
 /* prototypes */
 void error (char *fmt, ...), warning (char *fmt, ...), message(char *fmt, ...);
-#ifdef PATCHED_LCMS
-BOOL ReadVCGT(cmsHPROFILE hProfile, LPGAMMATABLE * pRTable, LPGAMMATABLE * pGTable, LPGAMMATABLE * pBTable, unsigned int nEntries);
-static icInt32Number  SearchTag(LPLCMSICCPROFILE Profile, icTagSignature sig);
-#endif
 
 #if 1
-# define BE_INT(a)    ((a)[3]+((a)[2]*256)+((a)[1]*65536) +((a)[0]*16777216))
-# define BE_SHORT(a)  ((a)[1]+((a)[0]*256))
+# define BE_INT(a)    ((a)[3]+((a)[2]<<8)+((a)[1]<<16) +((a)[0]<<24))
+# define BE_SHORT(a)  ((a)[1]+((a)[0]<<8))
 #else
 # warning "big endian is NOT TESTED"
 # define BE_INT(a)    (a)
@@ -110,32 +95,54 @@ static icInt32Number  SearchTag(LPLCMSICCPROFILE Profile, icTagSignature sig);
 /* internal state struct */
 struct xcalib_state_t {
   unsigned int verbose;
-#ifdef PATCHED_LCMS
-  LPGAMMATABLE rGammaTable;
-  LPGAMMATABLE gGammaTable;
-  LPGAMMATABLE bGammaTable;
-#endif
-} xcalib_state;
+  float redGamma;
+  float redMin;
+  float redMax;
+  float greenGamma;
+  float greenMin;
+  float greenMax;
+  float blueGamma;
+  float blueMin;
+  float blueMax;
+  float gamma_cor;
+} xcalib_state = {0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0};
 
 
 void
 usage (void)
 {
-  fprintf (stdout, "Copyright (C) 2004-2005 Stefan Doehla <stefan AT doehla DOT de>\n");
+  fprintf (stdout, "xcalib %s\n", XCALIB_VERSION);
+  fprintf (stdout, "Copyright (C) 2004-2007 Stefan Doehla <stefan AT doehla DOT de>\n");
   fprintf (stdout, "THIS PROGRAM COMES WITH ABSOLUTELY NO WARRANTY!\n");
   fprintf (stdout, "\n");
   fprintf (stdout, "usage:  xcalib [-options] ICCPROFILE\n");
+  fprintf (stdout, "     or xcalib [-options] -alter\n");
   fprintf (stdout, "\n");
   fprintf (stdout, "where the available options are:\n");
 #ifndef WIN32GDI
   fprintf (stdout, "    -display <host:dpy>     or -d\n");
   fprintf (stdout, "    -screen <screen-#>      or -s\n");
+#else
+  fprintf (stdout, "    -screen <monitor-#>     or -s\n");
+#endif
+#ifdef FGLRX
+  fprintf (stdout, "    -controller <card-#>    or -x\n");
 #endif
   fprintf (stdout, "    -clear                  or -c\n");
-  fprintf (stdout, "    -noaction               or -n\n");
+  fprintf (stdout, "    -noaction <LUT-size>    or -n\n");
   fprintf (stdout, "    -verbose                or -v\n");
   fprintf (stdout, "    -printramps             or -p\n");
   fprintf (stdout, "    -loss                   or -l\n");
+  fprintf (stdout, "    -invert                 or -i\n");
+  fprintf (stdout, "    -gammacor <gamma>       or -gc\n");
+  fprintf (stdout, "    -brightness <percent>   or -b\n");
+  fprintf (stdout, "    -contrast <percent>     or -co\n");
+  fprintf (stdout, "    -red <gamma> <brightness-percent> <contrast-percent>\n");
+  fprintf (stdout, "    -green <gamma> <brightness-percent> <contrast-percent>\n");
+  fprintf (stdout, "    -blue <gamma> <brightness-percent> <contrast-percent>\n");
+#ifndef FGLRX
+  fprintf (stdout, "    -alter                  or -a\n");
+#endif
   fprintf (stdout, "    -help                   or -h\n");
   fprintf (stdout, "    -version\n");
   fprintf (stdout, "\n");
@@ -143,27 +150,81 @@ usage (void)
 	   "last parameter must be an ICC profile containing a vcgt-tag\n");
   fprintf (stdout, "\n");
 #ifndef WIN32GDI 
-  fprintf (stdout, "Example: ./xcalib -d :0 -s 0 -v gamma_1_0.icc\n");
+  fprintf (stdout, "Example: ./xcalib -d :0 -s 0 -v bluish.icc\n");
 #else
-  fprintf (stdout, "Example: ./xcalib -v gamma_1_0.icc\n");
+  fprintf (stdout, "Example: ./xcalib -v bluish.icc\n");
+#endif
+#ifndef FGLRX
+  fprintf (stdout, "Example: ./xcalib -red 1.1 10.0 100.0\n");
 #endif
   fprintf (stdout, "\n");
   exit (0);
 }
 
-#if !defined(ICCLIB) && !defined(PATCHED_LCMS)
+#ifdef WIN32GDI
+/* Win32 monitor enumeration - code by gl.tter ( http://gl.tter.org ) */
+static unsigned int monitorSearchIndex = 0;
+static HDC monitorDC = 0;
+
 /*
- * FUNCTION read_vcgt_from_profile
+ * FUNCTION MonitorEnumProc
+ *
+ * this is a Win32 callback function which is given as an argument
+ * to EnumDisplayMonitors.
+ *
+ * returns
+ * TRUE: if the current enumerated display is the wrong one
+ * FALSE: if the right monitor was found and the DC was associated
+ */
+BOOL CALLBACK MonitorEnumProc (HMONITOR monitor, HDC hdc, LPRECT rect, LPARAM data)
+{
+  MONITORINFOEX monitorInfo;
+  
+  if(monitorSearchIndex++ != (unsigned int)data)
+    return TRUE; /* continue enumeration */
+  
+  monitorInfo.cbSize = sizeof(monitorInfo);
+  if(GetMonitorInfo(monitor, (LPMONITORINFO)&monitorInfo) )
+    monitorDC = CreateDC(NULL, monitorInfo.szDevice, NULL, NULL);
+  
+  return FALSE;  /* stop enumeration */
+}
+
+/*
+ * FUNCTION FindMonitor
+ *
+ * find a specific monitor given by index. Index -1 is the
+ * primary display.
+ *
+ * returns the DC of the selected monitor
+ */
+HDC FindMonitor(int index)
+{
+  if(index == -1)
+    return GetDC(NULL); /* return primary display context */
+
+  monitorSearchIndex = 0;
+  monitorDC = 0;
+  EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, index);
+  return monitorDC;
+}
+
+#endif
+
+/*
+ * FUNCTION read_vcgt_internal
  *
  * this is a parser for the vcgt tag of ICC profiles which tries to
  * resemble most of the functionality of Graeme Gill's icclib.
  *
- * It is not completely finished yet, so you might be better off using
- * the LCMS or icclib version of xcalib. It is not Big-Endian-safe!
+ * returns
+ * -1: file could not be read
+ * 0: file okay but doesn't contain vcgt or MLUT tag
+ * 1: success
  */
 int
-read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** gRamp,
-		       u_int16_t ** bRamp, unsigned int * nEntries)
+read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
+		       u_int16_t * bRamp, unsigned int nEntries)
 {
   FILE * fp;
   unsigned int bytesRead;
@@ -175,7 +236,9 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
   unsigned int uTmp;
   unsigned int gammaType;
 
-  u_int16_t * redRamp, * greenRamp, * blueRamp;
+  signed int retVal=0;
+
+  u_int16_t * redRamp = NULL, * greenRamp = NULL, * blueRamp = NULL;
   unsigned int ratio=0;
   /* formula */
   float rGamma, rMin, rMax;
@@ -191,11 +254,12 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
   if(filename) {
     fp = fopen(filename, "rb");
     if(!fp)
-      return -1;
+      return -1; /* file can not be opened */
   } else
-    return -1;
+    return -1; /* filename char pointer not valid */
   /* skip header */
-  fseek(fp, 0+128, SEEK_SET);
+  if(fseek(fp, 0+128, SEEK_SET))
+    return  -1;
   /* check num of tags in current profile */
   bytesRead = fread(cTmp, 1, 4, fp);
   numTags = BE_INT(cTmp);
@@ -207,15 +271,16 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
     bytesRead = fread(cTmp, 1, 4, fp);
     tagSize = BE_INT(cTmp);
     if(!bytesRead)
-      goto cleanup_fileparser;
+      break;
     if(tagName == MLUT_TAG)
     {
-      fseek(fp, 0+tagOffset, SEEK_SET);
+      if(fseek(fp, 0+tagOffset, SEEK_SET))
+        break;
       message("mLUT found (Profile Mechanic)\n");
       redRamp = (unsigned short *) malloc ((256) * sizeof (unsigned short));
       greenRamp = (unsigned short *) malloc ((256) * sizeof (unsigned short));
       blueRamp = (unsigned short *) malloc ((256) * sizeof (unsigned short));
-      {		  
+      {
         for(j=0; j<256; j++) {
           bytesRead = fread(cTmp, 1, 2, fp);
           redRamp[j]= BE_SHORT(cTmp);
@@ -229,36 +294,18 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
           blueRamp[j]= BE_SHORT(cTmp);
         }
       }
-      /* interpolate if vcgt size doesn't match video card's gamma table */
-      if(*nEntries == 256) {
-        *rRamp = redRamp;
-        *gRamp = greenRamp;
-        *bRamp = blueRamp;
+      /* simply copy values to the external table (and leave some values out if table size < 256) */
+      ratio = (unsigned int)(256 / (nEntries));
+      for(j=0; j<nEntries; j++) {
+        rRamp[j] = redRamp[ratio*j];
+        gRamp[j] = greenRamp[ratio*j];
+        bRamp[j] = blueRamp[ratio*j];
       }
-      else if(*nEntries < 256) {
-        ratio = (unsigned int)(256 / (*nEntries));
-        *rRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        *gRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        *bRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        for(j=0; j<*nEntries; j++) {
-          rRamp[0][j] = redRamp[ratio*j];
-          gRamp[0][j] = greenRamp[ratio*j];
-          bRamp[0][j] = blueRamp[ratio*j];
-        }
-      }
-      /* interpolation of zero order - TODO: at least bilinear */
-      else if(*nEntries > 256) {
-        ratio = (unsigned int)((*nEntries) / 256);
-        *rRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        *gRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        *bRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        for(j=0; j<*nEntries; j++) {
-          rRamp[0][j] = redRamp[j/ratio];
-          gRamp[0][j] = greenRamp[j/ratio];
-          bRamp[0][j] = blueRamp[j/ratio];
-        }
-      }
-      goto cleanup_fileparser;
+      free(redRamp);
+      free(greenRamp);
+      free(blueRamp);
+      retVal = 1;
+      break;
     }
     if(tagName == VCGT_TAG)
     {
@@ -267,9 +314,11 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
       bytesRead = fread(cTmp, 1, 4, fp);
       tagName = BE_INT(cTmp);
       if(tagName != VCGT_TAG)
-        error("invalid content of table vcgt, starting with %x",
+      {
+        warning("invalid content of table vcgt, starting with %x",
               tagName);
-        //! goto cleanup_fileparser;
+        break;
+      }
       bytesRead = fread(cTmp, 1, 4, fp);
       bytesRead = fread(cTmp, 1, 4, fp);
       gammaType = BE_INT(cTmp);
@@ -304,36 +353,42 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
         bMax = (float)uTmp/65536.0;
 
         if(rGamma > 5.0 || gGamma > 5.0 || bGamma > 5.0)
-          error("Gamma values out of range (> 5.0): \nR: %f \tG: %f \t B: %f",
+        {
+          warning("Gamma values out of range (> 5.0): \nR: %f \tG: %f \t B: %f",
                 rGamma, gGamma, bGamma);
+          break;
+        }
         if(rMin >= 1.0 || gMin >= 1.0 || bMin >= 1.0)
-          error("Gamma lower limit out of range (>= 1.0): \nRMin: %f \tGMin: %f \t BMin: %f",
+        {
+          warning("Gamma lower limit out of range (>= 1.0): \nRMin: %f \tGMin: %f \t BMin: %f",
                 rMin, gMin, bMin);
+          break;
+        }
         if(rMax > 1.0 || gMax > 1.0 || bMax > 1.0)
-          error("Gamma upper limit out of range (> 1.0): \nRMax: %f \tGMax: %f \t BMax: %f",
+        {
+          warning("Gamma upper limit out of range (> 1.0): \nRMax: %f \tGMax: %f \t BMax: %f",
                 rMax, gMax, bMax);
-       
+          break;
+        }
         message("Red:   Gamma %f \tMin %f \tMax %f\n", rGamma, rMin, rMax);
         message("Green: Gamma %f \tMin %f \tMax %f\n", gGamma, gMin, gMax);
         message("Blue:  Gamma %f \tMin %f \tMax %f\n", bGamma, bMin, bMax);
 
-        *rRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        *gRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        *bRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        for(j=0; j<*nEntries; j++) {
-          rRamp[0][j] = 65536 *
-            ((double) pow ((double) j * (rMax - rMin) / (double) (*nEntries),
-                           rGamma * (double) SYSTEM_GAMMA
-                          ) + rMin);
-          gRamp[0][j] = 65536 *
-            ((double) pow ((double) j * (gMax - gMin) / (double) (*nEntries),
-                           gGamma * (double) SYSTEM_GAMMA
-                          ) + gMin);
-          bRamp[0][j] = 65536 *
-            ((double) pow ((double) j * (bMax - bMin) / (double) (*nEntries),
-                           bGamma * (double) SYSTEM_GAMMA
-                          ) + bMin);
+        for(j=0; j<nEntries; j++) {
+          rRamp[j] = 65536.0 *
+            ((double) pow ((double) j / (double) (nEntries),
+                           rGamma * (double) xcalib_state.gamma_cor 
+                          ) * (rMax - rMin) + rMin);
+          gRamp[j] = 65536.0 *
+            ((double) pow ((double) j / (double) (nEntries),
+                           gGamma * (double) xcalib_state.gamma_cor
+                          ) * (gMax - gMin) + gMin);
+          bRamp[j] = 65536.0 *
+            ((double) pow ((double) j / (double) (nEntries),
+                           bGamma * (double) xcalib_state.gamma_cor
+                          ) * (bMax - bMin) + bMin);
         }
+        retVal = 1;
       }
       /* VideoCardGammaTable */
       else if(gammaType==0) {
@@ -344,7 +399,7 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
         bytesRead = fread(cTmp, 1, 2, fp);
         entrySize = BE_SHORT(cTmp);
 
-        /* conecealment for AdobeGamma-Profiles */
+        /* work-around for AdobeGamma-Profiles */
         if(tagSize == 1584) {
           entrySize = 2;
           numEntries = 256;
@@ -357,11 +412,12 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
         message ("tag size:        \t%d\n", tagSize);
                                                 
         if(numChannels!=3)          /* assume we have always RGB */
-          goto cleanup_fileparser;
+          break;
 
-        redRamp = (unsigned short *) malloc ((numEntries) * sizeof (unsigned short));
-        greenRamp = (unsigned short *) malloc ((numEntries) * sizeof (unsigned short));
-        blueRamp = (unsigned short *) malloc ((numEntries) * sizeof (unsigned short));
+        /* allocate tables for the file plus one entry for extrapolation */
+        redRamp = (unsigned short *) malloc ((numEntries+1) * sizeof (unsigned short));
+        greenRamp = (unsigned short *) malloc ((numEntries+1) * sizeof (unsigned short));
+        blueRamp = (unsigned short *) malloc ((numEntries+1) * sizeof (unsigned short));
         {		  
           for(j=0; j<numEntries; j++) {
             switch(entrySize) {
@@ -389,8 +445,7 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
           }
           for(j=0; j<numEntries; j++) {
             switch(entrySize) {
-              case 1:
-                bytesRead = fread(cTmp, 1, 1, fp);
+              case 1:                bytesRead = fread(cTmp, 1, 1, fp);
                 blueRamp[j]= cTmp[0] << 8;
                 break;
               case 2:
@@ -400,52 +455,51 @@ read_vcgt_from_profile(const char * filename, u_int16_t ** rRamp, u_int16_t ** g
             }
           }
         }
-        *rRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        *gRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        *bRamp = (unsigned short *) malloc ((*nEntries) * sizeof (unsigned short));
-        /* interpolate if vcgt size doesn't match video card's gamma table */
-        if(*nEntries <= numEntries) {
-          ratio = (unsigned int)(numEntries / (*nEntries));
-          for(j=0; j<*nEntries; j++) {
-            rRamp[0][j] = redRamp[ratio*j];
-            gRamp[0][j] = greenRamp[ratio*j];
-            bRamp[0][j] = blueRamp[ratio*j];
+        
+        if(numEntries >= nEntries) {
+          /* simply subsample if the LUT is smaller than the number of entries in the file */
+          ratio = (unsigned int)(numEntries / (nEntries));
+          for(j=0; j<nEntries; j++) {
+            rRamp[j] = redRamp[ratio*j];
+            gRamp[j] = greenRamp[ratio*j];
+            bRamp[j] = blueRamp[ratio*j];
           }
         }
-        /* interpolation of zero order - TODO: at least bilinear */
-        else if(*nEntries > numEntries) {
-          ratio = (unsigned int)((*nEntries) / numEntries);
-          for(j=0; j<*nEntries; j++) {
-            rRamp[0][j] = redRamp[j/ratio];
-            gRamp[0][j] = greenRamp[j/ratio];
-            bRamp[0][j] = blueRamp[j/ratio];
+        else {
+          ratio = (unsigned int)(nEntries / numEntries);
+          /* add extrapolated upper limit to the arrays - handle overflow */
+          redRamp[numEntries] = (redRamp[numEntries-1] + (redRamp[numEntries-1] - redRamp[numEntries-2])) & 0xffff;
+          if(redRamp[numEntries] < 0x4000)
+            redRamp[numEntries] = 0xffff;
+          
+          greenRamp[numEntries] = (greenRamp[numEntries-1] + (greenRamp[numEntries-1] - greenRamp[numEntries-2])) & 0xffff;
+          if(greenRamp[numEntries] < 0x4000)
+            greenRamp[numEntries] = 0xffff;
+          
+          blueRamp[numEntries] = (blueRamp[numEntries-1] + (blueRamp[numEntries-1] - blueRamp[numEntries-2])) & 0xffff;
+          if(blueRamp[numEntries] < 0x4000)
+            blueRamp[numEntries] = 0xffff;
+         
+          for(j=0; j<numEntries; j++) {
+            for(i=0; i<ratio; i++)
+            {
+              rRamp[j*ratio+i] = (redRamp[j]*(ratio-i) + redRamp[j+1]*(i)) / (ratio);
+              gRamp[j*ratio+i] = (greenRamp[j]*(ratio-i) + greenRamp[j+1]*(i)) / (ratio);
+              bRamp[j*ratio+i] = (blueRamp[j]*(ratio-i) + blueRamp[j+1]*(i)) / (ratio);
+            }
           }
         }
         free(redRamp);
         free(greenRamp);
         free(blueRamp);
+        retVal = 1;
       }
-      goto cleanup_fileparser;
-    }
+      break;
+    } /* for all tags */
   }
-  /* fallback: fill gamma with default values if no valid vcgt found */
-  *rRamp = (unsigned short *) malloc (256 * sizeof (unsigned short));
-  *gRamp = (unsigned short *) malloc (256 * sizeof (unsigned short));
-  *bRamp = (unsigned short *) malloc (256 * sizeof (unsigned short));
-  for(j=0; j < 256; j++) {
-    rRamp[0][j] = j << 8;
-    gRamp[0][j] = j << 8;
-    bRamp[0][j] = j << 8; 
-  }
-  *nEntries = 256;
   fclose(fp);
-  return 1;
-  
-cleanup_fileparser:
-  fclose(fp);
-  return 0;
+  return retVal;
 }
-#endif
 
 int
 main (int argc, char *argv[])
@@ -458,22 +512,19 @@ main (int argc, char *argv[])
   int ecount = 1;		/* Embedded count */
   int offset = 0;		/* Offset to read profile from */
   int found;
-#ifdef ICCLIB
-  icmFile *fp, *op;
-  icc *icco;			/* ICC object */
-#elif PATCHED_LCMS
-  cmsHPROFILE hDisplayProfile;
-#endif
-  struct xcalib_state_t * x = NULL;
   int rv = 0;
   u_int16_t *r_ramp = NULL, *g_ramp = NULL, *b_ramp = NULL;
   int i;
   int clear = 0;
+  int alter = 0;
   int donothing = 0;
   int printramps = 0;
   int calcloss = 0;
+  int invert = 0;
+  int correction = 0;
   u_int16_t tmpRampVal = 0;
   unsigned int r_res, g_res, b_res;
+  int screen = -1;
 
   unsigned int ramp_size = 256;
   unsigned int ramp_scaling;
@@ -482,9 +533,9 @@ main (int argc, char *argv[])
   /* X11 */
   XF86VidModeGamma gamma;
   Display *dpy = NULL;
-  int screen = -1;
   char *displayname = NULL;
 #ifdef FGLRX
+  int controller = -1;
   FGLRX_X11Gamma_C16native fglrx_gammaramps;
 #endif
 #else
@@ -500,7 +551,6 @@ main (int argc, char *argv[])
 #endif
 
   xcalib_state.verbose = 0;
-  x = &xcalib_state;
 
   /* begin program part */
 #ifdef WIN32GDI
@@ -542,11 +592,20 @@ main (int argc, char *argv[])
         displayname = argv[i];
         continue;
     }
-    /* X11 screen */
+#endif
+    /* X11 screen / Win32 monitor index */
     if (!strcmp (argv[i], "-s") || !strcmp (argv[i], "-screen")) {
       if (++i >= argc)
         usage ();
       screen = atoi (argv[i]);
+      continue;
+    }
+#ifdef FGLRX
+    /* ATI controller index (for FGLRX only) */
+    if (!strcmp (argv[i], "-x") || !strcmp (argv[i], "-controller")) {
+      if (++i >= argc)
+        usage ();
+      controller = atoi (argv[i]);
       continue;
     }
 #endif
@@ -555,9 +614,14 @@ main (int argc, char *argv[])
       printramps = 1;
       continue;
     }
-    /* print ramps to stdout */
+    /* print error introduced by applying ramps to stdout */
     if (!strcmp (argv[i], "-l") || !strcmp (argv[i], "-loss")) {
       calcloss = 1;
+      continue;
+    }
+    /* invert the LUT */
+    if (!strcmp (argv[i], "-i") || !strcmp (argv[i], "-invert")) {
+      invert = 1;
       continue;
     }
     /* clear gamma lut */
@@ -565,45 +629,204 @@ main (int argc, char *argv[])
       clear = 1;
       continue;
     }
+#ifndef FGLRX
+    /* alter existing lut */
+    if (!strcmp (argv[i], "-a") || !strcmp (argv[i], "-alter")) {
+      alter = 1;
+      continue;
+    }
+#endif
     /* do not alter video-LUTs : work's best in conjunction with -v! */
     if (!strcmp (argv[i], "-n") || !strcmp (argv[i], "-noaction")) {
       donothing = 1;
+      if (++i >= argc)
+        usage();
+      ramp_size = atoi(argv[i]);
       continue;
     }
+    /* global gamma correction value (use 2.2 for WinXP Color Control-like behaviour) */
+    if (!strcmp (argv[i], "-gc") || !strcmp (argv[i], "-gammacor")) {
+      if (++i >= argc)
+        usage();
+      xcalib_state.gamma_cor = atof (argv[i]);
+      correction = 1;
+      continue;
+    }
+    /* take additional brightness into account */
+    if (!strcmp (argv[i], "-b") || !strcmp (argv[i], "-brightness")) {
+      double brightness = 0.0;
+      if (++i >= argc)
+        usage();
+      brightness = atof(argv[i]);
+      if(brightness < 0.0 || brightness > 99.0)
+      {
+        warning("brightness is out of range 0.0-99.0");
+        continue;
+      }
+      xcalib_state.redMin = xcalib_state.greenMin = xcalib_state.blueMin = brightness / 100.0;
+      xcalib_state.redMax = xcalib_state.greenMax = xcalib_state.blueMax =
+        (1.0 - xcalib_state.blueMin) * xcalib_state.blueMax + xcalib_state.blueMin;
+      
+      correction = 1;
+      continue;
+    }
+    /* take additional contrast into account */
+    if (!strcmp (argv[i], "-co") || !strcmp (argv[i], "-contrast")) {
+      double contrast = 100.0;
+      if (++i >= argc)
+        usage();
+      contrast = atof(argv[i]);
+      if(contrast < 1.0 || contrast > 100.0)
+      {
+        warning("contrast is out of range 1.0-100.0");
+        continue;
+      }
+      xcalib_state.redMax = xcalib_state.greenMax = xcalib_state.blueMax = contrast / 100.0;
+      xcalib_state.redMax = xcalib_state.greenMax = xcalib_state.blueMax =
+        (1.0 - xcalib_state.blueMin) * xcalib_state.blueMax + xcalib_state.blueMin;
+ 
+      correction = 1;
+      continue;
+    }
+    /* additional red calibration */ 
+    if (!strcmp (argv[i], "-red")) {
+      double gamma = 1.0, brightness = 0.0, contrast = 100.0;
+      if (++i >= argc)
+        usage();
+      gamma = atof(argv[i]);
+      if(gamma < 0.1 || gamma > 5.0)
+      {
+        warning("gamma is out of range 0.1-5.0");
+        continue;
+      }
+      if (++i >= argc)
+        usage();
+      brightness = atof(argv[i]);
+      if(brightness < 0.0 || brightness > 99.0)
+      {
+        warning("brightness is out of range 0.0-99.0");
+        continue;
+      }
+      if (++i >= argc)
+        usage();
+      contrast = atof(argv[i]);
+      if(contrast < 1.0 || contrast > 100.0)
+      {
+        warning("contrast is out of range 1.0-100.0");
+        continue;
+      }
+ 
+      xcalib_state.redMin = brightness / 100.0;
+      xcalib_state.redMax =
+        (1.0 - xcalib_state.redMin) * (contrast / 100.0) + xcalib_state.redMin;
+      xcalib_state.redGamma = gamma;
+ 
+      correction = 1;
+      continue;
+    }
+    /* additional green calibration */
+    if (!strcmp (argv[i], "-green")) {
+      double gamma = 1.0, brightness = 0.0, contrast = 100.0;
+      if (++i >= argc)
+        usage();
+      gamma = atof(argv[i]);
+      if(gamma < 0.1 || gamma > 5.0)
+      {
+        warning("gamma is out of range 0.1-5.0");
+        continue;
+      }
+      if (++i >= argc)
+        usage();
+      brightness = atof(argv[i]);
+      if(brightness < 0.0 || brightness > 99.0)
+      {
+        warning("brightness is out of range 0.0-99.0");
+        continue;
+      }
+      if (++i >= argc)
+        usage();
+      contrast = atof(argv[i]);
+      if(contrast < 1.0 || contrast > 100.0)
+      {
+        warning("contrast is out of range 1.0-100.0");
+        continue;
+      }
+ 
+      xcalib_state.greenMin = brightness / 100.0;
+      xcalib_state.greenMax =
+        (1.0 - xcalib_state.greenMin) * (contrast / 100.0) + xcalib_state.greenMin;
+      xcalib_state.greenGamma = gamma;
+ 
+      correction = 1;
+      continue;
+    }
+    /* additional blue calibration */
+    if (!strcmp (argv[i], "-blue")) {
+      double gamma = 1.0, brightness = 0.0, contrast = 100.0;
+      if (++i >= argc)
+        usage();
+      gamma = atof(argv[i]);
+      if(gamma < 0.1 || gamma > 5.0)
+      {
+        warning("gamma is out of range 0.1-5.0");
+        continue;
+      }
+      if (++i >= argc)
+        usage();
+      brightness = atof(argv[i]);
+      if(brightness < 0.0 || brightness > 99.0)
+      {
+        warning("brightness is out of range 0.0-99.0");
+        continue;
+      }
+      if (++i >= argc)
+        usage();
+      contrast = atof(argv[i]);
+      if(contrast < 1.0 || contrast > 100.0)
+      {
+        warning("contrast is out of range 1.0-100.0");
+        continue;
+      }
+ 
+      xcalib_state.blueMin = brightness / 100.0;
+      xcalib_state.blueMax =
+        (1.0 - xcalib_state.blueMin) * (contrast / 100.0) + xcalib_state.blueMin;
+      xcalib_state.blueGamma = gamma;
+ 
+      correction = 1;
+      continue;
+    }
+ 
     if (i != argc - 1 && !clear && i) {
       usage ();
     }
-    if(!clear)
-      strcpy (in_name, argv[i]);
+    if(!clear || !alter)
+    {
+      if(strlen(argv[i]) < 255)
+        strcpy (in_name, argv[i]);
+      else
+        usage ();
+    }
   }
 
 #ifdef WIN32GDI
-  if (!clear && (in_name[0] == '\0')) {
-    hDc = GetDC(NULL);
+  if ((!clear || !alter) && (in_name[0] == '\0')) {
+    hDc = FindMonitor(screen);
     win_profile_len = MAX_PATH;
     win_default_profile[0] = '\0';
     SetICMMode(hDc, ICM_ON);
-    if(GetICMProfile(hDc, (LPDWORD) &win_profile_len, win_default_profile))
-      strcpy (in_name, win_default_profile);
+    if(GetICMProfileA(hDc, (LPDWORD) &win_profile_len, (LPSTR)win_default_profile))
+    {
+      if(strlen(win_default_profile) < 255)
+        strcpy (in_name, win_default_profile);
+      else
+        usage();
+    }
     else
       usage();
   }
 #endif
 
-  if (!clear) {
-#ifdef ICCLIB
-    /* Open up the file for reading */
-    if ((fp = new_icmFileStd_name (in_name, "r")) == NULL)
-      error ("Can't open file '%s'", in_name);
-    if ((icco = new_icc ()) == NULL)
-      error ("Creation of ICC object failed");
-#elif PATCHED_LCMS
-    hDisplayProfile = cmsOpenProfileFromFile(in_name, "r");
-    if(hDisplayProfile == NULL)
-      error ("Can't open ICC profile");
-#endif 
-  }
-  
 #ifndef WIN32GDI
   /* X11 initializing */
   if ((dpy = XOpenDisplay (displayname)) == NULL) {
@@ -628,7 +851,7 @@ main (int argc, char *argv[])
       fglrx_gammaramps.GGamma[i] = i << 2;
       fglrx_gammaramps.BGamma[i] = i << 2;
     }
-    if (!FGLRX_X11SetGammaRamp_C16native_1024(dpy, screen, -1, 256, &fglrx_gammaramps)) {
+    if (!FGLRX_X11SetGammaRamp_C16native_1024(dpy, screen, controller, 256, &fglrx_gammaramps)) {
 #endif
       XCloseDisplay (dpy);
       error ("Unable to reset display gamma");
@@ -637,204 +860,175 @@ main (int argc, char *argv[])
   }
   
   /* get number of entries for gamma ramps */
+  if(!donothing)
+  {
 #ifndef FGLRX
-  if (!XF86VidModeGetGammaRampSize (dpy, screen, &ramp_size)) {
+    if (!XF86VidModeGetGammaRampSize (dpy, screen, &ramp_size)) {
 #else
-  if (!FGLRX_X11GetGammaRampSize(dpy, screen, &ramp_size)) {
+    if (!FGLRX_X11GetGammaRampSize(dpy, screen, &ramp_size)) {
 #endif
-    XCloseDisplay (dpy);
-    if(!donothing)
-      error ("Unable to query gamma ramp size");
-    else {
-      warning ("Unable to query gamma ramp size");
-      ramp_size = 256;
+      XCloseDisplay (dpy);
+      if(!donothing)
+        error ("Unable to query gamma ramp size");
+      else {
+        warning ("Unable to query gamma ramp size - assuming 256");
+        ramp_size = 256;
+      }
     }
   }
-#else
-  if(!hDc)
-    hDc = GetDC(NULL);
-  if (clear) {
-    if (!SetDeviceGammaRamp(hDc, &winGammaRamp))
-      error ("Unable to reset display gamma");
-    goto cleanupX;
+#else /* WIN32GDI */
+  if(!donothing) {
+    if(!hDc)
+      hDc = FindMonitor(screen);
+    if (clear) {
+      if (!SetDeviceGammaRamp(hDc, &winGammaRamp))
+        error ("Unable to reset display gamma");
+      goto cleanupX;
+    }
   }
 #endif
 
-#if !defined(ICCLIB) && !defined(PATCHED_LCMS)
-  if(read_vcgt_from_profile(in_name, &r_ramp, &g_ramp, &b_ramp, &ramp_size) < 0) {
-    error ("Unable to read file '%s'", in_name);
+  /* check for ramp size being a power of 2 and inside the supported range */
+  switch(ramp_size)
+  {
+    case 16:
+    case 32:
+    case 64:
+    case 128:
+    case 256:
+    case 512:
+    case 1024:
+    case 2048:
+    case 4096:
+    case 8192:
+    case 16384:
+    case 32768:
+    case 65536:
+      break;
+    default:
+      error("unsupported ramp size %u", ramp_size);
   }
-#endif 
+  
+  r_ramp = (unsigned short *) malloc (ramp_size * sizeof (unsigned short));
+  g_ramp = (unsigned short *) malloc (ramp_size * sizeof (unsigned short));
+  b_ramp = (unsigned short *) malloc (ramp_size * sizeof (unsigned short));
 
-#ifdef ICCLIB
-  do {
-    found = 0;
+  if(!alter)
+  {
+    if( (i = read_vcgt_internal(in_name, r_ramp, g_ramp, b_ramp, ramp_size)) <= 0) {
+      if(i<0)
+        warning ("Unable to read file '%s'", in_name);
+      if(i=0)
+        warning ("No calibration data in ICC profile '%s' found", in_name);
+      free(r_ramp);
+      free(g_ramp);
+      free(b_ramp);
+      exit(0);
+    }
+  } else {
+#ifndef WIN32GDI
+    if (!XF86VidModeGetGammaRamp (dpy, screen, ramp_size, r_ramp, g_ramp, b_ramp))
+      warning ("Unable to get display calibration");
+#else
+    if (!GetDeviceGammaRamp(hDc, &winGammaRamp))
+      warning ("Unable to get display calibration");
 
-    /* Dumb search for magic number */
-    if (search) {
-      int fc = 0;
-      char c;
+    for (i = 0; i < ramp_size; i++) {
+      r_ramp[i] = winGammaRamp.Red[i];
+      g_ramp[i] = winGammaRamp.Green[i];
+      b_ramp[i] = winGammaRamp.Blue[i];
+    }
+#endif
+  }
 
-      if (fp->seek (fp, offset) != 0)
+  {
+    float redBrightness = 0.0;
+    float redContrast = 100.0;
+    float redMin = 0.0;
+    float redMax = 1.0;
+    float redGamma = 1.0;
+
+    redMin = (double)r_ramp[0] / 65535.0;
+    redMax = (double)r_ramp[ramp_size - 1] / 65535.0;
+    redBrightness = redMin * 100.0;
+    redContrast = (redMax - redMin) / (1.0 - redMin) * 100.0; 
+    message("Red Brightness: %f   Contrast: %f  Max: %f  Min: %f\n", redBrightness, redContrast, redMax, redMin);
+  }
+
+  {
+    float greenBrightness = 0.0;
+    float greenContrast = 100.0;
+    float greenMin = 0.0;
+    float greenMax = 1.0;
+    float greenGamma = 1.0;
+
+    greenMin = (double)g_ramp[0] / 65535.0;
+    greenMax = (double)g_ramp[ramp_size - 1] / 65535.0;
+    greenBrightness = greenMin * 100.0;
+    greenContrast = (greenMax - greenMin) / (1.0 - greenMin) * 100.0; 
+    message("Green Brightness: %f   Contrast: %f  Max: %f  Min: %f\n", greenBrightness, greenContrast, greenMax, greenMin);
+  }
+
+  {
+    float blueBrightness = 0.0;
+    float blueContrast = 100.0;
+    float blueMin = 0.0;
+    float blueMax = 1.0;
+    float blueGamma = 1.0;
+
+    blueMin = (double)b_ramp[0] / 65535.0;
+    blueMax = (double)b_ramp[ramp_size - 1] / 65535.0;
+    blueBrightness = blueMin * 100.0;
+    blueContrast = (blueMax - blueMin) / (1.0 - blueMin) * 100.0; 
+    message("Blue Brightness: %f   Contrast: %f  Max: %f  Min: %f\n", blueBrightness, blueContrast, blueMax, blueMin);
+  }
+
+  if(correction != 0)
+  {
+    for(i=0; i<ramp_size; i++)
+    {
+      r_ramp[i] =  65536.0 * (((double) pow (((double) r_ramp[i]/65536.0),
+                                xcalib_state.redGamma * (double) xcalib_state.gamma_cor
+                  ) * (xcalib_state.redMax - xcalib_state.redMin)) + xcalib_state.redMin);
+      g_ramp[i] =  65536.0 * (((double) pow (((double) g_ramp[i]/65536.0),
+                                xcalib_state.greenGamma * (double) xcalib_state.gamma_cor
+                  ) * (xcalib_state.greenMax - xcalib_state.greenMin)) + xcalib_state.greenMin);
+      b_ramp[i] =  65536.0 * (((double) pow (((double) b_ramp[i]/65536.0),
+                                xcalib_state.blueGamma * (double) xcalib_state.gamma_cor
+                  ) * (xcalib_state.blueMax - xcalib_state.blueMin)) + xcalib_state.blueMin); 
+    }
+    message("Altering Red LUTs with   Gamma %f   Min %f   Max %f\n",
+       xcalib_state.redGamma, xcalib_state.redMin, xcalib_state.redMax);
+    message("Altering Green LUTs with   Gamma %f   Min %f   Max %f\n",
+       xcalib_state.greenGamma, xcalib_state.greenMin, xcalib_state.greenMax);
+    message("Altering Blue LUTs with   Gamma %f   Min %f   Max %f\n",
+       xcalib_state.blueGamma, xcalib_state.blueMin, xcalib_state.blueMax);
+  }
+
+  if(!invert) {
+    /* ramps should be monotonic - otherwise content is nonsense! */
+    for (i = 0; i < ramp_size - 1; i++) {
+      if (r_ramp[i + 1] < r_ramp[i])
+        warning ("red gamma table not monotonic");
+      if (g_ramp[i + 1] < g_ramp[i])
+        warning ("green gamma table not monotonic");
+      if (b_ramp[i + 1] < b_ramp[i])
+        warning ("blue gamma table not monotonic");
+    }
+  } else {
+    for (i = 0; i < ramp_size; i++) {
+      if(i >= ramp_size / 2)
         break;
-
-      while (found == 0) {
-        if (fp->read (fp, &c, 1, 1) != 1) 
-          break;
-        offset++;
-
-        switch (fc) {
-          case 0:
-            if (c == 'a')
-              fc++;
-            else
-              fc = 0;
-            break;
-          case 1:
-            if (c == 'c')
-              fc++;
-            else
-              fc = 0;
-            break;
-          case 2:
-            if (c == 's')
-              fc++;
-            else
-              fc = 0;
-            break;
-          case 3:
-            if (c == 'p') {
-              found = 1;
-              offset -= 40;
-            }
-            else
-              fc = 0;
-            break;
-        }
-      }
+      tmpRampVal = r_ramp[i];
+      r_ramp[i] = r_ramp[ramp_size - i - 1];
+      r_ramp[ramp_size - i - 1] = tmpRampVal;
+      tmpRampVal = g_ramp[i];
+      g_ramp[i] = g_ramp[ramp_size - i - 1];
+      g_ramp[ramp_size - i - 1] = tmpRampVal;
+      tmpRampVal = b_ramp[i];
+      b_ramp[i] = b_ramp[ramp_size - i - 1];
+      b_ramp[ramp_size - i - 1] = tmpRampVal;
     }
-    if (search == 0 || found != 0) {
-      ecount++;
-      if ((rv = icco->read (icco, fp, offset)) != 0)
-        error ("%d, %s", rv, icco->err);
-
-      {
-        /* we only search for vcgt tag */
-        icTagSignature sig = icSigVideoCardGammaTag;
-
-        /* Try and locate that particular tag */
-        if ((rv = icco->find_tag (icco, sig)) != 0) {
-          if (rv == 1)
-            warning ("found vcgt-tag but inconsistent values", tag_name);
-          else
-            error ("can't find tag '%s' in file", tag2str (sig));
-        }
-        else {
-          icmVideoCardGamma *ob;
-          if ((ob = (icmVideoCardGamma *) icco->read_tag (icco,sig)) == NULL)
-            warning("Failed to read video card gamma table: %d, %s", tag_name, icco->errc, icco->err);
-          else {
-            if (ob->ttype != icSigVideoCardGammaType)
-              warning("Video card gamma table is in inconsistent state");
-            switch ((int) ob->tagType) {
-              /* video card gamme table: can be loaded directly to X-server if appropriately scaled */
-              case icmVideoCardGammaTableType:
-                message ("channels:        \t%d\n", ob->u.table.channels);
-                message ("entry size:      \t%dbits\n", ob->u.table.entrySize * 8);
-                message ("entries/channel: \t%d\n", ob->u.table.entryCount);
-
-                ramp_scaling = ob->u.table.entryCount / ramp_size;
-
-                /* we must interpolate in case of bigger gamma ramps of X-server than
-                 * the vcg-table does contain. This is something that needs to be done
-                 * in a later version TODO */
-                if(ob->u.table.entryCount < ramp_size)
-                  error("vcgt-tag does not contain enough data for this Video-LUT");
-
-                r_ramp = (unsigned short *) malloc ((ramp_size + 1) * sizeof (unsigned short));
-                g_ramp = (unsigned short *) malloc ((ramp_size + 1) * sizeof (unsigned short));
-                b_ramp = (unsigned short *) malloc ((ramp_size + 1) * sizeof (unsigned short));
-
-                /* TODO: allow interpolation for non-integer divisors in
-                 * between Video-LUT and X gamma ramp*/
-                switch (ob->u.table.entrySize) {
-                  case (1):     /* 8 bit */
-                    for (i = 0; i < ramp_size; i++)
-                      r_ramp[i] = 0xff * (unsigned short) 
-                        ((char *) ob->u.table.data)[i*ramp_scaling];
-                    for (; i < 2 * ramp_size; i++)
-                      g_ramp[i - ramp_size] = 0xff * (unsigned short) 
-                        ((char *) ob->u.table.data)[i*ramp_scaling];
-                    for (; i < 3 * ramp_size; i++)
-                      b_ramp[i - 2 * ramp_size] = 0xff * (unsigned short) 
-                        ((char *) ob->u.table.data)[i*ramp_scaling];
-                    break;
-                  case (2):     /* 16 bit */
-                    for (i = 0; i < ramp_size; i++)
-                      r_ramp[i] = (unsigned short) 
-                        ((short *) ob->u.table.data)[i*ramp_scaling];
-                    for (; i < (2 * ramp_size); i++)
-                      g_ramp[i - ramp_size] = (unsigned short) 
-                        ((short *) ob->u.table.data)[i*ramp_scaling];
-                    for (; i < (3 * ramp_size); i++)
-                      b_ramp[i - 2 * ramp_size] = (unsigned short) 
-                        ((short *) ob->u.table.data)[i*ramp_scaling];
-                    break;
-                  }
-                  break;
-              /* gamma formula type: currently no minimum/maximum value TODO*/
-              case icmVideoCardGammaFormulaType:
-                r_ramp = (unsigned short *) malloc ((ramp_size + 1) * sizeof (unsigned short));
-                g_ramp = (unsigned short *) malloc ((ramp_size + 1) * sizeof (unsigned short));
-                b_ramp = (unsigned short *) malloc ((ramp_size + 1) * sizeof (unsigned short));
-
-                ramp_scaling = 65536 / ramp_size;
-
-                /* maths for gamma calculation: use system gamma as reference */
-                for (i = 0; i < ramp_size; i++) {
-                  r_ramp[i] = 65536 * (double) 
-                    pow ((double) i / (double) ramp_size, 
-                        ob->u.formula.redGamma * (double) SYSTEM_GAMMA);
-                  g_ramp[i] = 65536 * (double) 
-                    pow ((double) i / (double) ramp_size, 
-                        ob->u.formula.greenGamma * (double) SYSTEM_GAMMA);
-                  b_ramp[i] = 65536 * (double) 
-                    pow ((double) i / (double) ramp_size,
-                        ob->u.formula.blueGamma * (double) SYSTEM_GAMMA);
-                }
-                break;  /* gamma formula */
-            }
-          }
-        }
-      }
-      offset += 128;
-    }
-  } while (found != 0);
-
-#elif PATCHED_LCMS
-  x->rGammaTable = x->gGammaTable =x->bGammaTable = NULL;
-  x->rGammaTable = cmsAllocGamma(ramp_size);
-  x->gGammaTable = cmsAllocGamma(ramp_size);
-  x->bGammaTable = cmsAllocGamma(ramp_size);
-
-  if(!cmsTakeVideoCardGammaTable(hDisplayProfile, &(x->rGammaTable), &(x->gGammaTable), &(x->bGammaTable) ) )
-    error("xcalib exited due to error in reading vcgt");
-   
-  /* XVidMode gamma ramps have same size than LCMS GammaTable-content */
-  r_ramp = x->rGammaTable->GammaTable;
-  g_ramp = x->gGammaTable->GammaTable;
-  b_ramp = x->bGammaTable->GammaTable;
-
-#endif
-
-  /* ramps should be monotonic - otherwise content is nonsense! */
-  for (i = 0; i < ramp_size - 1; i++) {
-    if (r_ramp[i + 1] < r_ramp[i])
-      warning ("nonsense content in red gamma table");
-    if (g_ramp[i + 1] < g_ramp[i])
-      warning ("nonsense content in green gamma table");
-    if (b_ramp[i + 1] < b_ramp[i])
-      warning ("nonsense content in blue gamma table");
   }
   if(calcloss) {
     fprintf(stdout, "Resolution loss for %d entries:\n", ramp_size);
@@ -886,7 +1080,7 @@ main (int argc, char *argv[])
       fglrx_gammaramps.GGamma[i] = g_ramp[i] >> 6;
       fglrx_gammaramps.BGamma[i] = b_ramp[i] >> 6;
     }
-    if (!FGLRX_X11SetGammaRamp_C16native_1024(dpy, screen, -1, ramp_size, &fglrx_gammaramps))
+    if (!FGLRX_X11SetGammaRamp_C16native_1024(dpy, screen, controller, ramp_size, &fglrx_gammaramps))
 # else
     if (!XF86VidModeSetGammaRamp (dpy, screen, ramp_size, r_ramp, g_ramp, b_ramp))
 # endif
@@ -896,26 +1090,11 @@ main (int argc, char *argv[])
       warning ("Unable to calibrate display");
   }
 
-#ifdef ICCLIB
-  icco->del (icco);
-  fp->del (fp);
-#elif PATCHED_LCMS
-  if(x->rGammaTable!=NULL)
-    cmsFreeGamma(x->rGammaTable);
-  if(x->gGammaTable!=NULL)
-    cmsFreeGamma(x->gGammaTable);
-  if(x->bGammaTable!=NULL)
-    cmsFreeGamma(x->bGammaTable);
-#else
-  if(r_ramp)
-    free(r_ramp);
-  if(g_ramp)
-    free(g_ramp);
-  if(b_ramp)
-    free(b_ramp);
-#endif
-
   message ("X-LUT size:      \t%d\n", ramp_size);
+
+  free(r_ramp);
+  free(g_ramp);
+  free(b_ramp);
 
 cleanupX:
 #ifndef WIN32GDI

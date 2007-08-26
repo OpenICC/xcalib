@@ -1,6 +1,6 @@
-Xcalib 0.6
+xcalib 0.8
 ====================================================
-(c) 2004-2005 Stefan Döhla <stefan AT doehla DOT de>
+(c) 2004-2007 Stefan Döhla <stefan AT doehla DOT de>
 This program is GPL-licensed postcardware! More infos at end of README.
                              """""""""""""
 This program comes with ABSOLUTELY NO WARRANTY! Use on your own risk.
@@ -15,43 +15,89 @@ purpose:
 usage:
 ------
   xcalib [-options] ICCPROFILE
+  or
+  xcalib [-options] -alter
 
   where the available options are:
     -display <host:dpy>     or -d
     -screen <screen-#>      or -s
     -clear                  or -c
-    -noaction               or -n
+    -noaction <LUT-size>    or -n
     -verbose                or -v
     -printramps             or -p
     -loss                   or -l
+    -invert                 or -i
+    -gammacor <gamma>       or -gc
+    -brightness <percent>   or -b
+    -contrast <percent>     or -co
+    -red <gamma> <brightness-percent> <contrast-percent>
+    -green <gamma> <brightness-percent> <contrast-percent>
+    -blue <gamma> <brightness-percent> <contrast-percent>
+    -alter                  or -a
     -help                   or -h
     -version
 
-  last parameter MUST be an ICC profile containing a vcgt or mLUT tag.
+  last parameter MUST be an ICC profile containing a vcgt or mLUT tag
+  or empty if the "-a" or "-alter" paramter is used or the LUT is to
+  be cleared.
 
   use profiles gamma_1_0.icc and gamma_2_2.icc for testing. Profiles
   with vcg-tables can be created with most profile creation suites.
   An example profile with a vcg-table is inclued, named bluish.icc,
   which simulates a very high whitepoint (without further intentions).
 
+  !Special note for Win32 users: If there is a default profile set for
+  the primary display, running xcalib.exe without any arguments will
+  use the Windows default profile.
+
+  If the profile contains gamma values, these values may be related to
+  a special global gamma value. The default internal correction value
+  is 1.0, as Apple does (the creator of these calibration tags in
+  ICC profiles). To resemble the behaviour of the Windows XP Color
+  Control Panel, pass "-gammacor 2.2" if you think, the screen is way to
+  bright.
+
+  The values that shouldn't alter the screen for gamma, brightness and
+  contrast are gamma=1.0 brightness=0.0 and contrast=100.0 .
+  
 requirements:
 -------------
+  LINUX/UNIXes:
+  
   This program is intended for X11-Servers like XFree86 that come with
   XVidModeExtension (e.g. XFree86 4.x.x). Make sure that the extension
   is available. Other X-servers like OpenWin do not contain XVidMode
   stuff - so please don't ask me for support if XVidMode isn't
-  supported.
-
-  Since version 0.5, Win32-support was added. The program will work
-  with most video cards, that have correctly implemented drivers.
+  supported. If you are experiencing problems with the X.org server
+  because of missing XVidMode header files, search for the additional
+  packages that are available for most distributions. Debian provides
+  the headers by the package libxxf86vm-dev package.
 
   As of version 0.6, a special treatment for the close-source ATI FGLRX
-  X11 driver was added. XVidMode is still required.
+  X11 driver was added. The libs and header files are provided but may
+  need to be updated for the most current video cards.
+  The X11 and XVidMode headers are still required.
+  Thanks to bleader who sent me a patch for multi-monitor support
   
+  Microsoft Windows:
+ 
+  Since version 0.5, Win32-support was added. The program will work
+  with most video cards, that have correctly implemented drivers. You
+  need a working C compiler with the right windows headers to rebuild
+  xcalib.
+  Thanks to gl.tter multi-monitor support for Win32 is now available.
+
+testing:
+--------
   You need a profile which contains the 'vcgt' tag to achieve
   monitor calibration. You can create it with some commercial
   windows profile creation programs or use the bundled ones from Bruce
   Lindbloom (only Gamma 1.0 and 2.2).
+
+  If you prefer using free (as the free in open-source) profile
+  creation programs, have a look at current versions of ArgyllCMS.
+  It was mentioned that LProf is now also capable of creating monitor
+  profiles with vcgt tags included.
 
 install:
 --------
@@ -60,37 +106,16 @@ install:
   author) save time writing fancy autoconf/automake tests. One of the
   following commands should lead you to a working version of xcalib:
 
-  $ make icclib_xcalib
-  $ make lcms_xcalib
-  $ make lo_xcalib
-
+  $ make xcalib
   $ make win_xcalib
   $ make fglrx_xcalib
+  
+  For most UNIX-based systems the default version of xcalib should
+  work. It only uses the XVidMode-Extension. The following command
+  creates the executable:
 
-  The make targets correspond to the possible ICC reader
-  implementations:
-  - Graeme Gill's "icclib"
-    I decided to include it in the xcalib distribution for
-    convenience reasons. It is known to work and is stable!
-  - Marti Maria's "lcms"
-    You must build it from patched sources. A patch for version 1.13
-    is included (which works for 1.14 as well).
-    Patching is done by cd'ing to the lcms source directory and
-    applying patch:   $  patch -p1 -i DIR_OF_PATCH/lcms1.13_patch
-    If you have a version of lcms on your system that came with your
-    distribution, then don't forget to make the patched library
-    active (e.g. by deinstalling the unpatched one or setting 
-    LD_LIBRARY_PATH ...)
-    I decided to use internal lcms gamma calculation and smoothing to
-    allow extrapolation for big video LUTs. This leads to slightly
-    different values compared to the other exact methods. The error
-    is not dramatic, but check this on your own if you really want to
-    use it and fear the introduced error.
-  - the included but limited one can read vcgt tags only and is meant
-    for low overhead or standalone versions of xcalib. It was tested
-    on little-endian systems only. Please contact me if you encounter
-    any problems.
-
+  $ make xcalib
+  
   The Win32 version was made with and tested for MinGW. Since most
   users do not have a running MinGW environment, a binary executable is
   provided. To compile it on your own, the following command creates a
@@ -98,17 +123,12 @@ install:
 
   $ make win_xcalib
 
-  Win32 was only tested with the internal parser - lcms and icclib
-  support are not planned.
-
   For ATI's proprietary FGLRX driver for X11, a special version can be
   built. Issue the command
 
   $ make fglrx_xcalib
 
-  on the commandline. For now, only the internal parser can be used
-  in combination with this server backend.
- 
+
 motivation:
 -----------
   ICC profiles created and used with MS-Windows can now also be used
@@ -180,10 +200,18 @@ limitations:
   Known not-working drivers:
   - vesa (generic driver without any calibration knobs)
   - fglrx (but you can build fglrx_xcalib)
+  - savage with other depths than 24 (known bug in savage driver)
+    => solution: change DefaultDepth to 24 in xorg.conf if you
+    have enough video memory (may not work together with 3D).
 
   If you see both/only one/no display changing it's behaviour, test if
   it's a bug of xcalib by cross-checking with the 'xgamma' tool that
-  comes with every XFree86 distribution.
+  comes with every XFree86/X.org distribution.
+
+  Recently, OpenGL-accelerated window managers became a new fashion.
+  There have been reports that xcalib and similar tools do not work
+  there. Resolving this issue is on the TODO-list but may require
+  new X11 core components.
 
   Custom curves created with AdobeGamma do not contain these in the
   vcgt. The vcgt contains 2.2 in all cases, whereas the real LUT-values
@@ -191,7 +219,7 @@ limitations:
   system - but nobody know's where. Please tell me where they are - if
   you find them. A newer version of AdobeGamma (from 2003) writes a
   vcgt tag with useful data. Nevertheless, the size field is wrong. As
-  of version 0.6, basic concealment for wrong AdobeGamma profiles
+  of version 0.6, a work-around for wrong AdobeGamma profiles
   (created with the 2003 version) was added to the internal parser.
 
   On Win32-systems, some drivers are not correctly implemented. E.g.
@@ -204,16 +232,40 @@ limitations:
   the different parsers used to get the gamma ramps from the profile.
   This makes it hard to find the important code sections for others
   than me and might have lead to bugs or leaks. A following version
-  will most likely be ported to C++ to ease modularisation of the code
-  and allow utilization by other software.
-  
+  may be written in C++ to ease modularisation of the code and allow
+  utilization by other software.
+
 history:
 --------
-  0.6:
+  0.8: 2007-08-27
+    - applied gl.tter's patch for Win32 multi-monitor support
+    - applied bleader's patch for FGLRX multi-monitor support
+    - added support for LUTs bigger than in the profile
+      linear interpolation is used for creating the values in between
+    - changed -n parameter: now the size of the simulated LUT must
+      be given after -n/-noaction paramter
+      
+  0.7: 2007-06-23
+    - major code-cleanup
+    - fixed gamma limits for vcg-formulae
+      thanks to Graeme Gill, who pointed out the mistake
+    - implemented user-changeable gamma correction
+    - added alteration of existing LUTs
+    - added parameters for addiditional brightness, contrast, gamma
+      either globally or per color
+    - removed icclib for parsing ICC profiles
+    - removed the LCMS patch since it doesn't work with newer versions
+    - check string sizes before strcpy now
+    - fixed Win32 ICM profile fetching
+    - added inversion of all values: not related to color-management
+      but funny feature for the weekends
+    - updated this README
+
+  0.6: 2005-09-30
     - added 0-interpolated upscaling if LUT>vcgt
     - added reading of mLUT instead of vcgt (not memory-safe for now)
       this is used for profiles, created by ProfileMechanic Monitor
-    - added concealment for obviously wrong profiles made by AdobeGamma
+    - added parsing of obviously wrong profiles made by AdobeGamma
     - added fglrx version for ATI's proprietary driver
     - added loss calculation (option "-loss" or "-l") which shows how
       many steps are lost by calibrating the device
@@ -265,14 +317,14 @@ history:
 todo:
 -----
   [ ] integrate the _ICC_PROFILE atom
-  [ ] interpolated upscaling
+  [X] interpolated upscaling
   [X] use ATI's API when using the closed-source X11 ATI driver
-  [ ] gamma limits of vcgt-spec for icclib and LCMS version
-  [ ] further code review for memory leaks
+  [X] further code review for memory leaks
   [x] use platform independent types for better portability
   [X] use lcms instead of icclib: worse vcgt-parsing but functions
       for gamma ramp building and smoothing
-  [ ] add multi-monitor support to Win32 version
+  [X] add multi-monitor support to Win32 version
+  [X] apply bleader's patch for multiple FGLRX cards
 
 bugs:
 -----
@@ -286,8 +338,13 @@ author:
 thanks:
 -------
   Graeme Gill for his icclib which I used to parse ICC profiles in
-    versions prior 0.4 and which contained vcgt-parsing source code
+    versions prior 0.4 and which contained vcgt-parsing source code.
+    Note that he has a similar tool now, called dispwin. Because
+    both tools are similar, he found some ambiguity in the case of
+    gamma values and limits in vcgt tags. Thanks, Graeme, keep up
+    the good work!
   Kai-Uwe Behrmann for his ideas and alpha-testing
+    Note that Kai-Uwe uses xcalib in his Oyranos package
   RRZE (Regionales Rechenzentrum Erlangen) which employed me to ensure
     constant color quality for their large-format-printers and led me
     to color-management using ICC profiles
@@ -302,6 +359,9 @@ thanks:
     having xcalib
     Marti especially for LCMS: his lib for color-management
   Bruce Lindbloom for his ICC-profiles using vcg-formulae
+  gl.tter for his work on multi-monitor support for Win32
+    see his website at http://gl.tter.org
+  bleader for his work on multi-monitor support for ATI's FGLRX
 
 links:
 ------
@@ -311,6 +371,7 @@ links:
   http://www.argyllcms.com
   http://www.coloraid.de
   http://www.behrmann.name
+  http://lprof.sourceforge.net
 
 license:
 --------
@@ -324,6 +385,6 @@ license:
   GERMANY
 
   Please write on it your name and email-address and that you use
-  xcalib-0.6 .
+  xcalib-0.8 .
 
 EOF
