@@ -53,6 +53,7 @@
 # include <X11/Xlib.h>
 # include <X11/Xutil.h>
 # include <X11/extensions/xf86vmode.h>
+# include <X11/extensions/Xrandr.h>
 # ifdef FGLRX
 #  include <fglrx_gamma.h>
 # endif
@@ -838,6 +839,40 @@ main (int argc, char *argv[])
   else if (screen == -1)
     screen = DefaultScreen (dpy);
 
+  int xrr_version = -1;
+  int crtc = 0;
+  int major_versionp = 0;
+  int minor_versionp = 0;
+  int n = 0;
+  Window root = RootWindow(dpy, DefaultScreen( dpy )); 
+
+  XRRQueryVersion( dpy, &major_versionp, &minor_versionp );
+  xrr_version = major_versionp*100 + minor_versionp;
+
+  if(xrr_version >= 102)
+  {                           
+    XRRScreenResources * res = XRRGetScreenResources( dpy, root );
+    int ncrtc = 0;
+
+    n = res->noutput;
+    for( i = 0; i < n; ++i )
+    {
+      RROutput output = res->outputs[i];
+      XRROutputInfo * output_info = XRRGetOutputInfo( dpy, res,
+                                                        output);
+      if(output_info->crtc)
+        if(ncrtc++ == screen)
+        {
+          crtc = output_info->crtc;
+          ramp_size = XRRGetCrtcGammaSize( dpy, crtc );
+          message ("XRandR output:      \t%s\n", output_info->name);
+        }
+
+      XRRFreeOutputInfo( output_info ); output_info = 0;
+    }
+    //XRRFreeScreenResources(res); res = 0;
+  }
+
   /* clean gamma table if option set */
   gamma.red = 1.0;
   gamma.green = 1.0;
@@ -863,7 +898,7 @@ main (int argc, char *argv[])
   if(!donothing)
   {
 #ifndef FGLRX
-    if (!XF86VidModeGetGammaRampSize (dpy, screen, &ramp_size)) {
+    if (xrr_version < 102 && !XF86VidModeGetGammaRampSize (dpy, screen, &ramp_size)) {
 #else
     if (!FGLRX_X11GetGammaRampSize(dpy, screen, &ramp_size)) {
 #endif
@@ -927,7 +962,19 @@ main (int argc, char *argv[])
     }
   } else {
 #ifndef WIN32GDI
-    if (!XF86VidModeGetGammaRamp (dpy, screen, ramp_size, r_ramp, g_ramp, b_ramp))
+    if (xrr_version >= 102)
+    {
+      XRRCrtcGamma * gamma = 0;
+      if((gamma = XRRGetCrtcGamma(dpy, crtc)) != 0 )
+        warning ("Unable to get display calibration");
+
+      for (i = 0; i < ramp_size; i++) {
+        r_ramp[i] = gamma->red[i];
+        g_ramp[i] = gamma->green[i];
+        b_ramp[i] = gamma->blue[i];
+      }
+    }
+    else if (!XF86VidModeGetGammaRamp (dpy, screen, ramp_size, r_ramp, g_ramp, b_ramp))
       warning ("Unable to get display calibration");
 #else
     if (!GetDeviceGammaRamp(hDc, &winGammaRamp))
@@ -1082,6 +1129,23 @@ main (int argc, char *argv[])
     }
     if (!FGLRX_X11SetGammaRamp_C16native_1024(dpy, screen, controller, ramp_size, &fglrx_gammaramps))
 # else
+    if(xrr_version >= 102)
+    {
+      XRRCrtcGamma * gamma = XRRAllocGamma (ramp_size);
+      if(!gamma)
+        warning ("Unable to calibrate display");
+      else
+      {
+        for(i=0; i < ramp_size; ++i)
+        {
+          gamma->red[i] = r_ramp[i];
+          gamma->green[i] = g_ramp[i];
+          gamma->blue[i] = b_ramp[i];
+        }
+        XRRSetCrtcGamma (dpy, crtc, gamma);
+        XRRFreeGamma (gamma);
+      }
+    } else
     if (!XF86VidModeSetGammaRamp (dpy, screen, ramp_size, r_ramp, g_ramp, b_ramp))
 # endif
 #else
