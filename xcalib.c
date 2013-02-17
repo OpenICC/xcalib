@@ -1116,7 +1116,7 @@ main (int argc, char *argv[])
  
   if(printramps)
     for(i=0; i<ramp_size; i++)
-      fprintf(stdout,"%x %x %x\n", r_ramp[i], g_ramp[i], b_ramp[i]);
+      fprintf(stdout,"%d %d %d\n", r_ramp[i], g_ramp[i], b_ramp[i]);
 
   if(!donothing) {
     /* write gamma ramp to X-server */
