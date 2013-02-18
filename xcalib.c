@@ -87,6 +87,7 @@ void error (char *fmt, ...), warning (char *fmt, ...), message(char *fmt, ...);
 #if 1
 # define BE_INT(a)    ((a)[3]+((a)[2]<<8)+((a)[1]<<16) +((a)[0]<<24))
 # define BE_SHORT(a)  ((a)[1]+((a)[0]<<8))
+# define ROUND(a)     ((a)+0.5)
 #else
 # warning "big endian is NOT TESTED"
 # define BE_INT(a)    (a)
@@ -211,6 +212,34 @@ HDC FindMonitor(int index)
 }
 
 #endif
+
+float        LinInterpolateRampU16   ( unsigned short    * ramp,
+                                       int                 ramp_size,
+                                       float               pos )
+{
+  unsigned short val1, val2;
+  float start, dist, result;
+  
+  if(!ramp)
+    return 0.0;
+  
+  if(pos < 0)
+    return ramp[0];
+    
+  if(pos > ramp_size-1)
+    return ramp[ramp_size-1];
+  
+  dist = modff( pos, &start );
+  val1 = ramp[(int)start];
+  val2 = ramp[(int)start+1];
+    
+  result = val2 - val1;
+  result *= dist;
+  result += val1;
+    
+  return result;
+}
+
 
 /*
  * FUNCTION read_vcgt_internal
@@ -484,9 +513,9 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
           for(j=0; j<numEntries; j++) {
             for(i=0; i<ratio; i++)
             {
-              rRamp[j*ratio+i] = (redRamp[j]*(ratio-i) + redRamp[j+1]*(i)) / (ratio);
-              gRamp[j*ratio+i] = (greenRamp[j]*(ratio-i) + greenRamp[j+1]*(i)) / (ratio);
-              bRamp[j*ratio+i] = (blueRamp[j]*(ratio-i) + blueRamp[j+1]*(i)) / (ratio);
+              rRamp[j*ratio+i] = (int)LinInterpolateRampU16( redRamp, numEntries, (j*ratio+i)*(double)(numEntries-1)/(double)(nEntries-1));
+              gRamp[j*ratio+i] = (int)LinInterpolateRampU16( greenRamp, numEntries, (j*ratio+i)*(double)(numEntries-1)/(double)(nEntries-1));
+              bRamp[j*ratio+i] = (int)LinInterpolateRampU16( blueRamp, numEntries, (j*ratio+i)*(double)(numEntries-1)/(double)(nEntries-1));
             }
           }
         }
