@@ -35,7 +35,7 @@
 # if it doesn't compile right-out-of-the-box, it may be sufficient
 # to change the following variables
 
-XCALIB_VERSION = 0.8
+XCALIB_VERSION = 0.9
 CFLAGS = -O2
 XINCLUDEDIR = /usr/X11R6/include
 XLIBDIR = /usr/X11R6/lib
