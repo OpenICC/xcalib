@@ -48,7 +48,7 @@
 #include <sys/types.h>
 
 /* for X11 VidMode stuff */
-#ifndef WIN32GDI
+#ifndef _WIN32
 # include <X11/Xos.h>
 # include <X11/Xlib.h>
 # include <X11/Xutil.h>
@@ -77,7 +77,7 @@
 # define MAX_TABLE_SIZE   2e10
 #endif
 
-#ifdef WIN32GDI
+#ifdef _WIN32
 # define u_int16_t  WORD
 #endif
 
@@ -121,7 +121,7 @@ usage (void)
   fprintf (stdout, "     or xcalib [-options] -alter\n");
   fprintf (stdout, "\n");
   fprintf (stdout, "where the available options are:\n");
-#ifndef WIN32GDI
+#ifndef _WIN32
   fprintf (stdout, "    -display <host:dpy>     or -d\n");
   fprintf (stdout, "    -screen <screen-#>      or -s\n");
 #else
@@ -151,7 +151,7 @@ usage (void)
   fprintf (stdout,
 	   "last parameter must be an ICC profile containing a vcgt-tag\n");
   fprintf (stdout, "\n");
-#ifndef WIN32GDI 
+#ifndef _WIN32 
   fprintf (stdout, "Example: ./xcalib -d :0 -s 0 -v bluish.icc\n");
 #else
   fprintf (stdout, "Example: ./xcalib -v bluish.icc\n");
@@ -163,7 +163,7 @@ usage (void)
   exit (0);
 }
 
-#ifdef WIN32GDI
+#ifdef _WIN32
 /* Win32 monitor enumeration - code by gl.tter ( http://gl.tter.org ) */
 static unsigned int monitorSearchIndex = 0;
 static HDC monitorDC = 0;
@@ -559,7 +559,7 @@ main (int argc, char *argv[])
   unsigned int ramp_size = 256;
   unsigned int ramp_scaling;
 
-#ifndef WIN32GDI
+#ifndef _WIN32
   /* X11 */
   XF86VidModeGamma gamma;
   Display *dpy = NULL;
@@ -583,7 +583,7 @@ main (int argc, char *argv[])
   xcalib_state.verbose = 0;
 
   /* begin program part */
-#ifdef WIN32GDI
+#ifdef _WIN32
   for(i=0; i< ramp_size; i++) {
     winGammaRamp.Red[i] = i << 8;
     winGammaRamp.Blue[i] = i << 8;
@@ -593,7 +593,7 @@ main (int argc, char *argv[])
 
   /* command line parsing */
   
-#ifndef WIN32GDI
+#ifndef _WIN32
   if (argc < 2)
     usage ();
 #endif
@@ -614,7 +614,7 @@ main (int argc, char *argv[])
         fprintf(stdout, "xcalib " XCALIB_VERSION "\n");
         exit (0);
     }
-#ifndef WIN32GDI
+#ifndef _WIN32
     /* X11 display */
     if (!strcmp (argv[i], "-d") || !strcmp (argv[i], "-display")) {
       if (++i >= argc)
@@ -839,7 +839,7 @@ main (int argc, char *argv[])
     }
   }
 
-#ifdef WIN32GDI
+#ifdef _WIN32
   if ((!clear || !alter) && (in_name[0] == '\0')) {
     hDc = FindMonitor(screen);
     win_profile_len = MAX_PATH;
@@ -857,7 +857,7 @@ main (int argc, char *argv[])
   }
 #endif
 
-#ifndef WIN32GDI
+#ifndef _WIN32
   /* X11 initializing */
   if ((dpy = XOpenDisplay (displayname)) == NULL) {
     if(!donothing)
@@ -940,7 +940,7 @@ main (int argc, char *argv[])
       }
     }
   }
-#else /* WIN32GDI */
+#else /* _WIN32 */
   if(!donothing) {
     if(!hDc)
       hDc = FindMonitor(screen);
@@ -990,7 +990,7 @@ main (int argc, char *argv[])
       exit(0);
     }
   } else {
-#ifndef WIN32GDI
+#ifndef _WIN32
     if (xrr_version >= 102)
     {
       XRRCrtcGamma * gamma = 0;
@@ -1134,7 +1134,7 @@ main (int argc, char *argv[])
     }
     fprintf(stdout, "R: %d\tG: %d\t B: %d\t colors lost\n", ramp_size - r_res, ramp_size - g_res, ramp_size - b_res );
   }
-#ifdef WIN32GDI
+#ifdef _WIN32
   for (i = 0; i < ramp_size; i++) {
     winGammaRamp.Red[i] = r_ramp[i];
     winGammaRamp.Green[i] = g_ramp[i];
@@ -1149,7 +1149,7 @@ main (int argc, char *argv[])
 
   if(!donothing) {
     /* write gamma ramp to X-server */
-#ifndef WIN32GDI
+#ifndef _WIN32
 # ifdef FGLRX
     for(i = 0; i < ramp_size; i++) {
       fglrx_gammaramps.RGamma[i] = r_ramp[i] >> 6;
@@ -1190,7 +1190,7 @@ main (int argc, char *argv[])
   free(b_ramp);
 
 cleanupX:
-#ifndef WIN32GDI
+#ifndef _WIN32
   if(dpy)
     if(!donothing)
       XCloseDisplay (dpy);
