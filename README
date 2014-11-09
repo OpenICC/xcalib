@@ -1,4 +1,4 @@
-xcalib 0.8
+xcalib 0.9
 ====================================================
 (c) 2004-2007 Stefan Döhla <stefan AT doehla DOT de>
 This program is GPL-licensed postcardware! More infos at end of README.
@@ -65,9 +65,9 @@ requirements:
   LINUX/UNIXes:
   
   This program is intended for X11-Servers like XFree86 that come with
-  XVidModeExtension (e.g. XFree86 4.x.x). Make sure that the extension
-  is available. Other X-servers like OpenWin do not contain XVidMode
-  stuff - so please don't ask me for support if XVidMode isn't
+  XVidModeExtension (e.g. XFree86 4.x.x) and XRandR. Make sure that the
+  extension is available. Other X-servers like OpenWin do not contain 
+  XVidMode stuff - so please don't ask me for support if XVidMode isn't
   supported. If you are experiencing problems with the X.org server
   because of missing XVidMode header files, search for the additional
   packages that are available for most distributions. Debian provides
@@ -208,11 +208,6 @@ limitations:
   it's a bug of xcalib by cross-checking with the 'xgamma' tool that
   comes with every XFree86/X.org distribution.
 
-  Recently, OpenGL-accelerated window managers became a new fashion.
-  There have been reports that xcalib and similar tools do not work
-  there. Resolving this issue is on the TODO-list but may require
-  new X11 core components.
-
   Custom curves created with AdobeGamma do not contain these in the
   vcgt. The vcgt contains 2.2 in all cases, whereas the real LUT-values
   that are downloaded to the X-server are located somewhere else in the
@@ -237,6 +232,11 @@ limitations:
 
 history:
 --------
+  0.9: 2014-11-09
+    - fix rounding errors fro upsampling of gamma ramps
+    - fix -printramps uses integers
+    - support XRandR
+
   0.8: 2007-08-27
     - applied gl.tter's patch for Win32 multi-monitor support
     - applied bleader's patch for FGLRX multi-monitor support
