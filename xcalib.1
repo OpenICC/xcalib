@@ -1,13 +1,13 @@
-.TH "XCALIB" "1" "07 July 2007" "Stefan Dohla" "xcalib"
+.TH "XCALIB" "1" "10 November 2014" "Stefan Dohla" "xcalib"
 .SH "NAME" 
-xcalib \- Tiny monitor calibration loader for Xorg. 
+xcalib \- Tiny monitor calibration loader for Xorg and Windows. 
 .SH "SYNOPSIS" 
 .PP 
 \fBxcalib [\fB-options\fR] ICCPROFILE
 .SH "DESCRIPTION" 
 .PP 
-\fBxcalib\fR loads 'vcgt'-tag of ICC profiles to the X-server using the
-XVidMode Extension in order to calibrate your display.
+\fBxcalib\fR loads 'vcgt'-tag of ICC profiles to the server using the
+XRandR/XVidMode/GDI Extension in order to load calibrate curves to your display.
 .SH "OPTIONS"
 .IP "\fB-d\fP, \fB-display <host:dpy>\fP" 10
 .IP "\fB-s\fP, \fB-screen <screen-#>\fP" 10
@@ -28,8 +28,17 @@ XVidMode Extension in order to calibrate your display.
 .IP "\fB-version\fP" 10
 .PP
 Last parameter MUST be an ICC profile containing a vcgt or mLUT tag
-or empty if the "-a" or "-alter" paramter is used or the LUT is to
-be cleared.
+or empty if the "-a" or "-alter" parameter is used or the LUT is to
+be cleared with the "-c" parameter.
+.SH EXAMPLES
+.TP
+Assign the VCGT curves of a ICC profile to a screen:
+.B  xcalib -d :0 -s 0 -v profile_with_vcgt_tag.icc
+.PP
+.TP
+Reset a screens hardware LUT in order to do a calibration:
+.B xcalib -d :0 -s 0 -c
+.PP
 .SH "SEE ALSO" 
 .PP 
 Homepage: <http://www.etg.e-technik.uni-erlangen.de/web/doe/xcalib/> 
