@@ -908,7 +908,21 @@ main (int argc, char *argv[])
   gamma.blue = 1.0;
   if (clear) {
 #ifndef FGLRX
-    if (!XF86VidModeSetGamma (dpy, screen, &gamma)) {
+    if(xrr_version >= 102)
+    {
+      XRRCrtcGamma * gamma = XRRAllocGamma (ramp_size);
+      if(!gamma)
+        warning ("Unable to clear screen gamma");
+      else
+      {
+        for(i=0; i < ramp_size; ++i)
+          gamma->red[i] = gamma->green[i] = gamma->blue[i] = i * 65535 / ramp_size;
+        XRRSetCrtcGamma (dpy, crtc, gamma);
+        XRRFreeGamma (gamma);
+      }
+    } else
+    if (!XF86VidModeSetGamma (dpy, screen, &gamma))
+    {
 #else
     for(i = 0; i < 256; i++) {
       fglrx_gammaramps.RGamma[i] = i << 2;
