@@ -534,15 +534,9 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
 int
 main (int argc, char *argv[])
 {
-  int fa, nfa;			/* argument we're looking at */
   char in_name[256] = { '\000' };
   char tag_name[40] = { '\000' };
-  int verb = 2;
-  int search = 0;
-  int ecount = 1;		/* Embedded count */
-  int offset = 0;		/* Offset to read profile from */
   int found;
-  int rv = 0;
   u_int16_t *r_ramp = NULL, *g_ramp = NULL, *b_ramp = NULL;
   int i;
   int clear = 0;
@@ -556,8 +550,10 @@ main (int argc, char *argv[])
   unsigned int r_res, g_res, b_res;
   int screen = -1;
 
-  unsigned int ramp_size = 256;
-  unsigned int ramp_scaling;
+#ifdef FGLRX
+  unsigned
+#endif
+           int ramp_size = 256;
 
 #ifndef _WIN32
   /* X11 */
@@ -996,7 +992,7 @@ main (int argc, char *argv[])
     if( (i = read_vcgt_internal(in_name, r_ramp, g_ramp, b_ramp, ramp_size)) <= 0) {
       if(i<0)
         warning ("Unable to read file '%s'", in_name);
-      if(i=0)
+      if(i == 0)
         warning ("No calibration data in ICC profile '%s' found", in_name);
       free(r_ramp);
       free(g_ramp);
@@ -1036,7 +1032,6 @@ main (int argc, char *argv[])
     float redContrast = 100.0;
     float redMin = 0.0;
     float redMax = 1.0;
-    float redGamma = 1.0;
 
     redMin = (double)r_ramp[0] / 65535.0;
     redMax = (double)r_ramp[ramp_size - 1] / 65535.0;
@@ -1050,7 +1045,6 @@ main (int argc, char *argv[])
     float greenContrast = 100.0;
     float greenMin = 0.0;
     float greenMax = 1.0;
-    float greenGamma = 1.0;
 
     greenMin = (double)g_ramp[0] / 65535.0;
     greenMax = (double)g_ramp[ramp_size - 1] / 65535.0;
@@ -1064,7 +1058,6 @@ main (int argc, char *argv[])
     float blueContrast = 100.0;
     float blueMin = 0.0;
     float blueMax = 1.0;
-    float blueGamma = 1.0;
 
     blueMin = (double)b_ramp[0] / 65535.0;
     blueMax = (double)b_ramp[ramp_size - 1] / 65535.0;
