@@ -1,0 +1,22 @@
+Jorge Salamero Sanz (1):
+      add man page
+
+Kai-Uwe Behrmann (10):
+      add Example section to man page
+      use XRandR for -c -clear option
+      support cmake build system
+      update docu to 0.9
+      use _Win32 macro to detect the actual OS
+      push version to 0.9
+      fix rounding errors fro upsampling of gamma ramps
+      link against libm on all platforms
+      -printramps uses integers
+      support XRandR
+
+Stefan Doehla (5):
+      xcalib-source-0.8.tar.gz
+      xcalib-source-0.6.tar.gz
+      xcalib-source-0.5.tar.gz
+      xcalib-source-0.4.tar.gz
+      xcalib-source-0.3.tar.gz
+
