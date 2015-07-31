@@ -102,27 +102,27 @@ and doesn't use automake/autoconf stuff. Therefore you and I (the
 author) save time writing fancy autoconf/automake tests. One of the
 following commands should lead you to a working version of xcalib:
 
-  $ make xcalib
-  $ make win\_xcalib
-  $ make fglrx\_xcalib
+    $ make xcalib
+    $ make win\_xcalib
+    $ make fglrx\_xcalib
   
 For most UNIX-based systems the default version of xcalib should
 work. It only uses the XVidMode-Extension. The following command
 creates the executable:
 
-  $ make xcalib
+    $ make xcalib
   
 The Win32 version was made with and tested for MinGW. Since most
 users do not have a running MinGW environment, a binary executable is
 provided. To compile it on your own, the following command creates a
 working Win32-build (tested with MSys):
 
-  $ make win\_xcalib
+    $ make win\_xcalib
 
 For ATI's proprietary FGLRX driver for X11, a special version can be
 built. Issue the command
 
-  $ make fglrx_xcalib
+    $ make fglrx\_xcalib
 
 
 ### motivation
@@ -193,7 +193,7 @@ although they are dual-head models.
 
 Known not-working drivers:
 - vesa (generic driver without any calibration knobs)
-- fglrx (but you can build fglrx_xcalib)
+- fglrx (but you can build fglrx\_xcalib)
 - savage with other depths than 24 (known bug in savage driver)
   => solution: change DefaultDepth to 24 in xorg.conf if you
   have enough video memory (may not work together with 3D).
@@ -379,10 +379,10 @@ You should have received a copy of the GPL together with this
 software. Furthermore, it is postcardware. So if you like this
 program, send me a picture postcard from your country/area to:
 
-  Stefan Doehla
-  Steinselb 7
-  95100 Selb
-  GERMANY
+    Stefan Doehla
+    Steinselb 7
+    95100 Selb
+    GERMANY
 
 Please write on it your name and email-address and that you use
 xcalib-0.8 .
