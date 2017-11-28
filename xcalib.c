@@ -1139,7 +1139,7 @@ main (int argc, char *argv[])
       }
       tmpRampVal = b_ramp[i];
     }
-    fprintf(stdout, "R: %d\tG: %d\t B: %d\t colors lost\n", ramp_size - r_res, ramp_size - g_res, ramp_size - b_res );
+    fprintf(stdout, "R: %d G: %d B: %d colors lost\n", ramp_size - r_res, ramp_size - g_res, ramp_size - b_res );
   }
 #ifdef _WIN32
   for (i = 0; i < ramp_size; i++) {
