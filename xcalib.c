@@ -1089,14 +1089,14 @@ main (int argc, char *argv[])
   }
 
   if(!invert) {
-    /* ramps should be monotonic - otherwise content is nonsense! */
+    /* ramps should be increasing - otherwise content is nonsense! */
     for (i = 0; i < ramp_size - 1; i++) {
       if (r_ramp[i + 1] < r_ramp[i])
-        warning ("red gamma table not monotonic");
+        warning ("red gamma table not increasing");
       if (g_ramp[i + 1] < g_ramp[i])
-        warning ("green gamma table not monotonic");
+        warning ("green gamma table not increasing");
       if (b_ramp[i + 1] < b_ramp[i])
-        warning ("blue gamma table not monotonic");
+        warning ("blue gamma table not increasing");
     }
   } else {
     for (i = 0; i < ramp_size; i++) {
