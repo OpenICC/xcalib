@@ -124,6 +124,7 @@ usage (void)
 #ifndef _WIN32
   fprintf (stdout, "    -display <host:dpy>     or -d\n");
   fprintf (stdout, "    -screen <screen-#>      or -s\n");
+  fprintf (stdout, "    -output <output-#>      or -o\n");
 #else
   fprintf (stdout, "    -screen <monitor-#>     or -s\n");
 #endif
@@ -560,6 +561,7 @@ main (int argc, char *argv[])
   XF86VidModeGamma gamma;
   Display *dpy = NULL;
   char *displayname = NULL;
+  int xoutput = 0;
 #ifdef FGLRX
   int controller = -1;
   FGLRX_X11Gamma_C16native fglrx_gammaramps;
@@ -626,6 +628,15 @@ main (int argc, char *argv[])
       screen = atoi (argv[i]);
       continue;
     }
+#ifndef _WIN32
+    /* X11 output */
+    if (!strcmp (argv[i], "-o") || !strcmp (argv[i], "-output")) {
+      if (++i >= argc)
+        usage ();
+        xoutput = atoi (argv[i]);
+        continue;
+    }
+#endif
 #ifdef FGLRX
     /* ATI controller index (for FGLRX only) */
     if (!strcmp (argv[i], "-x") || !strcmp (argv[i], "-controller")) {
@@ -869,7 +880,7 @@ main (int argc, char *argv[])
   int major_versionp = 0;
   int minor_versionp = 0;
   int n = 0;
-  Window root = RootWindow(dpy, DefaultScreen( dpy )); 
+  Window root = RootWindow(dpy, screen);
 
   XRRQueryVersion( dpy, &major_versionp, &minor_versionp );
   xrr_version = major_versionp*100 + minor_versionp;
@@ -886,7 +897,7 @@ main (int argc, char *argv[])
       XRROutputInfo * output_info = XRRGetOutputInfo( dpy, res,
                                                         output);
       if(output_info->crtc)
-        if(ncrtc++ == screen)
+        if(ncrtc++ == xoutput)
         {
           crtc = output_info->crtc;
           ramp_size = XRRGetCrtcGammaSize( dpy, crtc );

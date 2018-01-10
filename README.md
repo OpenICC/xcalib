@@ -20,6 +20,7 @@ where the available options are:
 
 * -display <host:dpy>     or -d
 * -screen <screen-#>      or -s
+* -output <output-#>      or -o
 * -clear                  or -c
 * -noaction <LUT-size>    or -n
 * -verbose                or -v
@@ -225,6 +226,8 @@ may be written in C++ to ease modularisation of the code and allow
 utilization by other software.
 
 ### history
+#### 0.10: 2018-01-10
+- Fix incorrect use of X11 screen and output
 #### 0.9: 2014-11-09
 - fix rounding errors from upsampling of gamma ramps
 - fix -printramps uses integers
