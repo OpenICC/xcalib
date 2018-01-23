@@ -1,4 +1,4 @@
-# xcalib 0.9
+# xcalib 0.10
 (c) 2004-2007 Stefan Döhla <stefan AT doehla DOT de>
 This program is GPL-licensed **postcardware!** More infos at end of README.
 This program comes with ABSOLUTELY NO WARRANTY! Use on your own risk.
@@ -227,7 +227,7 @@ utilization by other software.
 
 ### history
 #### 0.10: 2018-01-10
-- Fix incorrect use of X11 screen and output
+- Fix incorrect use of X11 screen and output; rename -s to -o option
 #### 0.9: 2014-11-09
 - fix rounding errors from upsampling of gamma ramps
 - fix -printramps uses integers
