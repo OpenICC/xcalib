@@ -1015,8 +1015,8 @@ main (int argc, char *argv[])
     if (xrr_version >= 102)
     {
       XRRCrtcGamma * gamma = 0;
-      if((gamma = XRRGetCrtcGamma(dpy, crtc)) != 0 )
-        warning ("Unable to get display calibration");
+      if((gamma = XRRGetCrtcGamma(dpy, crtc)) == 0 )
+        warning ("XRRGetCrtcGamma() is unable to get display calibration");
 
       for (i = 0; i < ramp_size; i++) {
         r_ramp[i] = gamma->red[i];
@@ -1025,10 +1025,10 @@ main (int argc, char *argv[])
       }
     }
     else if (!XF86VidModeGetGammaRamp (dpy, screen, ramp_size, r_ramp, g_ramp, b_ramp))
-      warning ("Unable to get display calibration");
+      warning ("XF86VidModeGetGammaRamp() is unable to get display calibration");
 #else
     if (!GetDeviceGammaRamp(hDc, &winGammaRamp))
-      warning ("Unable to get display calibration");
+      warning ("GetDeviceGammaRamp() is unable to get display calibration");
 
     for (i = 0; i < ramp_size; i++) {
       r_ramp[i] = winGammaRamp.Red[i];
