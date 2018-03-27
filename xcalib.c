@@ -327,7 +327,8 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
       }
       /* simply copy values to the external table (and leave some values out if table size < 256) */
       ratio = (unsigned int)(256 / (nEntries));
-      for(j=0; j<nEntries; j++) {
+      for(j=0; j<nEntries; j++)
+      {
         rRamp[j] = redRamp[ratio*j];
         gRamp[j] = greenRamp[ratio*j];
         bRamp[j] = blueRamp[ratio*j];
@@ -354,7 +355,8 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
       bytesRead = fread(cTmp, 1, 4, fp);
       gammaType = BE_INT(cTmp);
       /* VideoCardGammaFormula */
-      if(gammaType==1) {
+      if(gammaType==1)
+      {
         bytesRead = fread(cTmp, 1, 4, fp);
         uTmp = BE_INT(cTmp);
         rGamma = (float)uTmp/65536.0;
@@ -405,7 +407,8 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
         message("Green: Gamma %f \tMin %f \tMax %f\n", gGamma, gMin, gMax);
         message("Blue:  Gamma %f \tMin %f \tMax %f\n", bGamma, bMin, bMax);
 
-        for(j=0; j<nEntries; j++) {
+        for(j=0; j<nEntries; j++)
+        {
           rRamp[j] = 65536.0 *
             ((double) pow ((double) j / (double) (nEntries),
                            rGamma * (double) xcalib_state.gamma_cor 
@@ -422,7 +425,8 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
         retVal = 1;
       }
       /* VideoCardGammaTable */
-      else if(gammaType==0) {
+      else if(gammaType==0)
+      {
         bytesRead = fread(cTmp, 1, 2, fp);
         numChannels = BE_SHORT(cTmp);
         bytesRead = fread(cTmp, 1, 2, fp);
@@ -449,9 +453,13 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
         redRamp = (unsigned short *) malloc ((numEntries+1) * sizeof (unsigned short));
         greenRamp = (unsigned short *) malloc ((numEntries+1) * sizeof (unsigned short));
         blueRamp = (unsigned short *) malloc ((numEntries+1) * sizeof (unsigned short));
-        {		  
-          for(j=0; j<numEntries; j++) {
-            switch(entrySize) {
+        {
+          rMax = gMax = bMax = -1;
+          rMin = gMin = bMin = 65536;
+          for(j=0; j<numEntries; j++)
+          {
+            switch(entrySize)
+            {
               case 1:
                 bytesRead = fread(cTmp, 1, 1, fp);
                 redRamp[j]= cTmp[0] << 8;
@@ -461,9 +469,15 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
                 redRamp[j]= BE_SHORT(cTmp);
                 break;
             }
+            if(rMax < redRamp[j])
+              rMax = redRamp[j];
+            if(rMin > redRamp[j])
+              rMin = redRamp[j];
           }
-          for(j=0; j<numEntries; j++) {
-            switch(entrySize) {
+          for(j=0; j<numEntries; j++)
+          {
+            switch(entrySize)
+            {
               case 1:
                 bytesRead = fread(cTmp, 1, 1, fp);
                 greenRamp[j]= cTmp[0] << 8;
@@ -473,9 +487,15 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
                 greenRamp[j]= BE_SHORT(cTmp);
                 break;
             }
+            if(gMax < greenRamp[j])
+              gMax = greenRamp[j];
+            if(gMin > greenRamp[j])
+              gMin = greenRamp[j];
           }
-          for(j=0; j<numEntries; j++) {
-            switch(entrySize) {
+          for(j=0; j<numEntries; j++)
+          {
+            switch(entrySize)
+            {
               case 1:                bytesRead = fread(cTmp, 1, 1, fp);
                 blueRamp[j]= cTmp[0] << 8;
                 break;
@@ -484,7 +504,21 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
                 blueRamp[j]= BE_SHORT(cTmp);
                 break;
             }
+            if(bMax < blueRamp[j])
+              bMax = blueRamp[j];
+            if(bMin > blueRamp[j])
+              bMin = blueRamp[j];
           }
+        }
+        if( abs(rMax-rMin) < 65535/20 &&
+            abs(gMax-gMin) < 65535/20 &&
+            abs(bMax-bMin) < 65535/20
+          )
+        {
+          warning ("Contrast below 5%% in ICC profile '%s'", filename);
+          warning ("min/max for red: %g / %g  green: %g / %g  blue: %g / %g", rMin, rMax, gMin, gMax, bMin, bMax );
+          retVal = -1;
+          break;
         }
         
         if(numEntries >= nEntries) {
