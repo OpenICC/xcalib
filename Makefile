@@ -63,7 +63,8 @@ win_xcalib: xcalib.c
 
 install:
 	cp ./xcalib $(DESTDIR)/usr/local/bin/
-	chmod 0644 $(DESTDIR)/usr/local/bin/xcalib
+	chown root:root $(DESTDIR)/usr/local/bin/xcalib
+#	chmod 0755 $(DESTDIR)/usr/local/bin/xcalib
 
 clean:
 	rm -f xcalib.o
