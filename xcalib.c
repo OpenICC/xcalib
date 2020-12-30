@@ -651,8 +651,8 @@ main (int argc, char *argv[])
     if (!strcmp (argv[i], "-d") || !strcmp (argv[i], "-display")) {
       if (++i >= argc)
         usage ();
-        displayname = argv[i];
-        continue;
+      displayname = argv[i];
+      continue;
     }
 #endif
     /* X11 screen / Win32 monitor index */
@@ -667,8 +667,8 @@ main (int argc, char *argv[])
     if (!strcmp (argv[i], "-o") || !strcmp (argv[i], "-output")) {
       if (++i >= argc)
         usage ();
-        xoutput = atoi (argv[i]);
-        continue;
+      xoutput = atoi (argv[i]);
+      continue;
     }
 #endif
 #ifdef FGLRX
