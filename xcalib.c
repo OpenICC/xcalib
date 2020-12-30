@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <fcntl.h>
 #include <string.h>
 #include <sys/types.h>
@@ -125,6 +126,7 @@ usage (void)
   fprintf (stdout, "    -display <host:dpy>     or -d\n");
   fprintf (stdout, "    -screen <screen-#>      or -s\n");
   fprintf (stdout, "    -output <output-#>      or -o\n");
+  fprintf (stdout, "    -outputname <name>      or -O\n");
 #else
   fprintf (stdout, "    -screen <monitor-#>     or -s\n");
 #endif
@@ -152,7 +154,7 @@ usage (void)
   fprintf (stdout,
 	   "last parameter must be an ICC profile containing a vcgt-tag\n");
   fprintf (stdout, "\n");
-#ifndef _WIN32 
+#ifndef _WIN32
   fprintf (stdout, "Example: ./xcalib -d :0 -s 0 -v bluish.icc\n");
 #else
   fprintf (stdout, "Example: ./xcalib -v bluish.icc\n");
@@ -182,14 +184,14 @@ static HDC monitorDC = 0;
 BOOL CALLBACK MonitorEnumProc (HMONITOR monitor, HDC hdc, LPRECT rect, LPARAM data)
 {
   MONITORINFOEX monitorInfo;
-  
+
   if(monitorSearchIndex++ != (unsigned int)data)
     return TRUE; /* continue enumeration */
-  
+
   monitorInfo.cbSize = sizeof(monitorInfo);
   if(GetMonitorInfo(monitor, (LPMONITORINFO)&monitorInfo) )
     monitorDC = CreateDC(NULL, monitorInfo.szDevice, NULL, NULL);
-  
+
   return FALSE;  /* stop enumeration */
 }
 
@@ -220,24 +222,24 @@ float        LinInterpolateRampU16   ( unsigned short    * ramp,
 {
   unsigned short val1, val2;
   float start, dist, result;
-  
+
   if(!ramp)
     return 0.0;
-  
+
   if(pos < 0)
     return ramp[0];
-    
+
   if(pos > ramp_size-1)
     return ramp[ramp_size-1];
-  
+
   dist = modff( pos, &start );
   val1 = ramp[(int)start];
   val2 = ramp[(int)start+1];
-    
+
   result = val2 - val1;
   result *= dist;
   result += val1;
-    
+
   return result;
 }
 
@@ -298,7 +300,7 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
     bytesRead = fread(cTmp, 1, 4, fp);
     tagName = BE_INT(cTmp);
     bytesRead = fread(cTmp, 1, 4, fp);
-    tagOffset = BE_INT(cTmp); 
+    tagOffset = BE_INT(cTmp);
     bytesRead = fread(cTmp, 1, 4, fp);
     tagSize = BE_INT(cTmp);
     if(!bytesRead)
@@ -411,7 +413,7 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
         {
           rRamp[j] = 65536.0 *
             ((double) pow ((double) j / (double) (nEntries),
-                           rGamma * (double) xcalib_state.gamma_cor 
+                           rGamma * (double) xcalib_state.gamma_cor
                           ) * (rMax - rMin) + rMin);
           gRamp[j] = 65536.0 *
             ((double) pow ((double) j / (double) (nEntries),
@@ -445,7 +447,7 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
         message ("entry size:      \t%dbits\n",entrySize  * 8);
         message ("entries/channel: \t%d\n", numEntries);
         message ("tag size:        \t%d\n", tagSize);
-                                                
+
         if(numChannels!=3)          /* assume we have always RGB */
           break;
 
@@ -520,7 +522,7 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
           retVal = -1;
           break;
         }
-        
+
         if(numEntries >= nEntries) {
           /* simply subsample if the LUT is smaller than the number of entries in the file */
           ratio = (unsigned int)(numEntries / (nEntries));
@@ -536,15 +538,15 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
           redRamp[numEntries] = (redRamp[numEntries-1] + (redRamp[numEntries-1] - redRamp[numEntries-2])) & 0xffff;
           if(redRamp[numEntries] < 0x4000)
             redRamp[numEntries] = 0xffff;
-          
+
           greenRamp[numEntries] = (greenRamp[numEntries-1] + (greenRamp[numEntries-1] - greenRamp[numEntries-2])) & 0xffff;
           if(greenRamp[numEntries] < 0x4000)
             greenRamp[numEntries] = 0xffff;
-          
+
           blueRamp[numEntries] = (blueRamp[numEntries-1] + (blueRamp[numEntries-1] - blueRamp[numEntries-2])) & 0xffff;
           if(blueRamp[numEntries] < 0x4000)
             blueRamp[numEntries] = 0xffff;
-         
+
           for(j=0; j<numEntries; j++) {
             for(i=0; i<ratio; i++)
             {
@@ -570,8 +572,6 @@ int
 main (int argc, char *argv[])
 {
   char in_name[256] = { '\000' };
-  char tag_name[40] = { '\000' };
-  int found;
   u_int16_t *r_ramp = NULL, *g_ramp = NULL, *b_ramp = NULL;
   int i;
   int clear = 0;
@@ -595,6 +595,7 @@ main (int argc, char *argv[])
   XF86VidModeGamma gamma;
   Display *dpy = NULL;
   char *displayname = NULL;
+  char *outputname = NULL;
   int xoutput = 0;
 #ifdef FGLRX
   int controller = -1;
@@ -607,7 +608,7 @@ main (int argc, char *argv[])
     WORD  Red[256];
     WORD  Green[256];
     WORD  Blue[256];
-  } GAMMARAMP; 
+  } GAMMARAMP;
   GAMMARAMP winGammaRamp;
   HDC hDc = NULL;
 #endif
@@ -624,7 +625,7 @@ main (int argc, char *argv[])
 #endif
 
   /* command line parsing */
-  
+
 #ifndef _WIN32
   if (argc < 2)
     usage ();
@@ -651,8 +652,8 @@ main (int argc, char *argv[])
     if (!strcmp (argv[i], "-d") || !strcmp (argv[i], "-display")) {
       if (++i >= argc)
         usage ();
-        displayname = argv[i];
-        continue;
+      displayname = argv[i];
+      continue;
     }
 #endif
     /* X11 screen / Win32 monitor index */
@@ -667,8 +668,14 @@ main (int argc, char *argv[])
     if (!strcmp (argv[i], "-o") || !strcmp (argv[i], "-output")) {
       if (++i >= argc)
         usage ();
-        xoutput = atoi (argv[i]);
-        continue;
+      xoutput = atoi (argv[i]);
+      continue;
+    }
+    if (!strcmp (argv[i], "-O") || !strcmp (argv[i], "-outputname")) {
+      if (++i >= argc)
+        usage ();
+      outputname = argv[i];
+      continue;
     }
 #endif
 #ifdef FGLRX
@@ -737,7 +744,7 @@ main (int argc, char *argv[])
       xcalib_state.redMin = xcalib_state.greenMin = xcalib_state.blueMin = brightness / 100.0;
       xcalib_state.redMax = xcalib_state.greenMax = xcalib_state.blueMax =
         (1.0 - xcalib_state.blueMin) * xcalib_state.blueMax + xcalib_state.blueMin;
-      
+
       correction = 1;
       continue;
     }
@@ -755,11 +762,11 @@ main (int argc, char *argv[])
       xcalib_state.redMax = xcalib_state.greenMax = xcalib_state.blueMax = contrast / 100.0;
       xcalib_state.redMax = xcalib_state.greenMax = xcalib_state.blueMax =
         (1.0 - xcalib_state.blueMin) * xcalib_state.blueMax + xcalib_state.blueMin;
- 
+
       correction = 1;
       continue;
     }
-    /* additional red calibration */ 
+    /* additional red calibration */
     if (!strcmp (argv[i], "-red")) {
       double gamma = 1.0, brightness = 0.0, contrast = 100.0;
       if (++i >= argc)
@@ -786,12 +793,12 @@ main (int argc, char *argv[])
         warning("contrast is out of range 1.0-100.0");
         continue;
       }
- 
+
       xcalib_state.redMin = brightness / 100.0;
       xcalib_state.redMax =
         (1.0 - xcalib_state.redMin) * (contrast / 100.0) + xcalib_state.redMin;
       xcalib_state.redGamma = gamma;
- 
+
       correction = 1;
       continue;
     }
@@ -822,12 +829,12 @@ main (int argc, char *argv[])
         warning("contrast is out of range 1.0-100.0");
         continue;
       }
- 
+
       xcalib_state.greenMin = brightness / 100.0;
       xcalib_state.greenMax =
         (1.0 - xcalib_state.greenMin) * (contrast / 100.0) + xcalib_state.greenMin;
       xcalib_state.greenGamma = gamma;
- 
+
       correction = 1;
       continue;
     }
@@ -858,16 +865,16 @@ main (int argc, char *argv[])
         warning("contrast is out of range 1.0-100.0");
         continue;
       }
- 
+
       xcalib_state.blueMin = brightness / 100.0;
       xcalib_state.blueMax =
         (1.0 - xcalib_state.blueMin) * (contrast / 100.0) + xcalib_state.blueMin;
       xcalib_state.blueGamma = gamma;
- 
+
       correction = 1;
       continue;
     }
- 
+
     if (i != argc - 1 && !clear && i) {
       usage ();
     }
@@ -920,26 +927,39 @@ main (int argc, char *argv[])
   xrr_version = major_versionp*100 + minor_versionp;
 
   if(xrr_version >= 102)
-  {                           
+  {
     XRRScreenResources * res = XRRGetScreenResources( dpy, root );
     int ncrtc = 0;
+    bool found = false;
 
     n = res->noutput;
-    for( i = 0; i < n; ++i )
+    for( i = 0; i < n && !found; ++i )
     {
       RROutput output = res->outputs[i];
       XRROutputInfo * output_info = XRRGetOutputInfo( dpy, res,
                                                         output);
       if(output_info->crtc)
-        if(ncrtc++ == xoutput)
+      {
+        if((!outputname && ncrtc++ == xoutput) ||
+           (outputname && output_info->name &&
+            !strcmp(outputname, output_info->name)))
         {
           crtc = output_info->crtc;
           ramp_size = XRRGetCrtcGammaSize( dpy, crtc );
           message ("XRandR output:      \t%s\n", output_info->name);
+          found = true;
         }
+      }
 
       XRRFreeOutputInfo( output_info ); output_info = 0;
     }
+
+    if(!found)
+    {
+      error("Unable to find selected output");
+      exit(1);
+    }
+
     //XRRFreeScreenResources(res); res = 0;
   }
 
@@ -977,7 +997,7 @@ main (int argc, char *argv[])
     }
     goto cleanupX;
   }
-  
+
   /* get number of entries for gamma ramps */
   if(!donothing)
   {
@@ -1027,7 +1047,7 @@ main (int argc, char *argv[])
     default:
       error("unsupported ramp size %u", ramp_size);
   }
-  
+
   r_ramp = (unsigned short *) malloc (ramp_size * sizeof (unsigned short));
   g_ramp = (unsigned short *) malloc (ramp_size * sizeof (unsigned short));
   b_ramp = (unsigned short *) malloc (ramp_size * sizeof (unsigned short));
@@ -1081,7 +1101,7 @@ main (int argc, char *argv[])
     redMin = (double)r_ramp[0] / 65535.0;
     redMax = (double)r_ramp[ramp_size - 1] / 65535.0;
     redBrightness = redMin * 100.0;
-    redContrast = (redMax - redMin) / (1.0 - redMin) * 100.0; 
+    redContrast = (redMax - redMin) / (1.0 - redMin) * 100.0;
     message("Red Brightness: %f   Contrast: %f  Max: %f  Min: %f\n", redBrightness, redContrast, redMax, redMin);
   }
 
@@ -1094,7 +1114,7 @@ main (int argc, char *argv[])
     greenMin = (double)g_ramp[0] / 65535.0;
     greenMax = (double)g_ramp[ramp_size - 1] / 65535.0;
     greenBrightness = greenMin * 100.0;
-    greenContrast = (greenMax - greenMin) / (1.0 - greenMin) * 100.0; 
+    greenContrast = (greenMax - greenMin) / (1.0 - greenMin) * 100.0;
     message("Green Brightness: %f   Contrast: %f  Max: %f  Min: %f\n", greenBrightness, greenContrast, greenMax, greenMin);
   }
 
@@ -1107,7 +1127,7 @@ main (int argc, char *argv[])
     blueMin = (double)b_ramp[0] / 65535.0;
     blueMax = (double)b_ramp[ramp_size - 1] / 65535.0;
     blueBrightness = blueMin * 100.0;
-    blueContrast = (blueMax - blueMin) / (1.0 - blueMin) * 100.0; 
+    blueContrast = (blueMax - blueMin) / (1.0 - blueMin) * 100.0;
     message("Blue Brightness: %f   Contrast: %f  Max: %f  Min: %f\n", blueBrightness, blueContrast, blueMax, blueMin);
   }
 
@@ -1123,7 +1143,7 @@ main (int argc, char *argv[])
                   ) * (xcalib_state.greenMax - xcalib_state.greenMin)) + xcalib_state.greenMin);
       b_ramp[i] =  65536.0 * (((double) pow (((double) b_ramp[i]/65536.0),
                                 xcalib_state.blueGamma * (double) xcalib_state.gamma_cor
-                  ) * (xcalib_state.blueMax - xcalib_state.blueMin)) + xcalib_state.blueMin); 
+                  ) * (xcalib_state.blueMax - xcalib_state.blueMin)) + xcalib_state.blueMin);
     }
     message("Altering Red LUTs with   Gamma %f   Min %f   Max %f\n",
        xcalib_state.redGamma, xcalib_state.redMin, xcalib_state.redMax);
@@ -1194,7 +1214,7 @@ main (int argc, char *argv[])
   }
 
 #endif
- 
+
   if(printramps)
     for(i=0; i<ramp_size; i++)
       fprintf(stdout,"%d %d %d\n", r_ramp[i], g_ramp[i], b_ramp[i]);
