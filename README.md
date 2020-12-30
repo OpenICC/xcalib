@@ -21,6 +21,7 @@ where the available options are:
 * -display <host:dpy>     or -d
 * -screen <screen-#>      or -s
 * -output <output-#>      or -o
+* -outputname <name>      or -O
 * -clear                  or -c
 * -noaction <LUT-size>    or -n
 * -verbose                or -v

@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <fcntl.h>
 #include <string.h>
 #include <sys/types.h>
@@ -125,6 +126,7 @@ usage (void)
   fprintf (stdout, "    -display <host:dpy>     or -d\n");
   fprintf (stdout, "    -screen <screen-#>      or -s\n");
   fprintf (stdout, "    -output <output-#>      or -o\n");
+  fprintf (stdout, "    -outputname <name>      or -O\n");
 #else
   fprintf (stdout, "    -screen <monitor-#>     or -s\n");
 #endif
@@ -593,6 +595,7 @@ main (int argc, char *argv[])
   XF86VidModeGamma gamma;
   Display *dpy = NULL;
   char *displayname = NULL;
+  char *outputname = NULL;
   int xoutput = 0;
 #ifdef FGLRX
   int controller = -1;
@@ -666,6 +669,12 @@ main (int argc, char *argv[])
       if (++i >= argc)
         usage ();
       xoutput = atoi (argv[i]);
+      continue;
+    }
+    if (!strcmp (argv[i], "-O") || !strcmp (argv[i], "-outputname")) {
+      if (++i >= argc)
+        usage ();
+      outputname = argv[i];
       continue;
     }
 #endif
@@ -921,23 +930,36 @@ main (int argc, char *argv[])
   {
     XRRScreenResources * res = XRRGetScreenResources( dpy, root );
     int ncrtc = 0;
+    bool found = false;
 
     n = res->noutput;
-    for( i = 0; i < n; ++i )
+    for( i = 0; i < n && !found; ++i )
     {
       RROutput output = res->outputs[i];
       XRROutputInfo * output_info = XRRGetOutputInfo( dpy, res,
                                                         output);
       if(output_info->crtc)
-        if(ncrtc++ == xoutput)
+      {
+        if((!outputname && ncrtc++ == xoutput) ||
+           (outputname && output_info->name &&
+            !strcmp(outputname, output_info->name)))
         {
           crtc = output_info->crtc;
           ramp_size = XRRGetCrtcGammaSize( dpy, crtc );
           message ("XRandR output:      \t%s\n", output_info->name);
+          found = true;
         }
+      }
 
       XRRFreeOutputInfo( output_info ); output_info = 0;
     }
+
+    if(!found)
+    {
+      error("Unable to find selected output");
+      exit(1);
+    }
+
     //XRRFreeScreenResources(res); res = 0;
   }
 
