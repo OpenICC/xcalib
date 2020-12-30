@@ -4,7 +4,7 @@ This program is GPL-licensed **postcardware!** More infos at end of README.
 This program comes with ABSOLUTELY NO WARRANTY! Use on your own risk.
 
 ### purpose
-load 'vcgt'-tag of ICC profiles to X-server like MS-Windows or MacOS 
+load 'vcgt'-tag of ICC profiles to X-server like MS-Windows or MacOS
 do it to calibrate your display.
 Versions 0.5 and higher are also usable with Microsoft Windows. They
 can be used as a free alternative to other calibration loaders.
@@ -59,13 +59,13 @@ bright.
 
 The values that shouldn't alter the screen for gamma, brightness and
 contrast are gamma=1.0 brightness=0.0 and contrast=100.0 .
-  
+
 ### requirements
 #### LINUX/UNIXes
-  
+
 This program is intended for X11-Servers like XFree86 that come with
 XVidModeExtension (e.g. XFree86 4.x.x) and XRandR. Make sure that the
-extension is available. Other X-servers like OpenWin do not contain 
+extension is available. Other X-servers like OpenWin do not contain
 XVidMode stuff - so please don't ask me for support if XVidMode isn't
 supported. If you are experiencing problems with the X.org server
 because of missing XVidMode header files, search for the additional
@@ -77,9 +77,9 @@ X11 driver was added. The libs and header files are provided but may
 need to be updated for the most current video cards.
 The X11 and XVidMode headers are still required.
 Thanks to bleader who sent me a patch for multi-monitor support
-  
+
 #### Microsoft Windows
- 
+
 Since version 0.5, Win32-support was added. The program will work
 with most video cards, that have correctly implemented drivers. You
 need a working C compiler with the right windows headers to rebuild
@@ -106,13 +106,13 @@ following commands should lead you to a working version of xcalib:
     $ make xcalib
     $ make win\_xcalib
     $ make fglrx\_xcalib
-  
+
 For most UNIX-based systems the default version of xcalib should
 work. It only uses the XVidMode-Extension. The following command
 creates the executable:
 
     $ make xcalib
-  
+
 The Win32 version was made with and tested for MinGW. Since most
 users do not have a running MinGW environment, a binary executable is
 provided. To compile it on your own, the following command creates a
@@ -152,13 +152,13 @@ to - this is the calibrated state.
 Calibration linearizes your device, helps to set characteristics and
 can be easily repeated. Repeating calibration can help you to keep
 your profile constant (users don't need to change it).
-  
+
 The current way of embedding calibration data in a profile is against
-the theory of separating calibration from profiling - but we have to 
+the theory of separating calibration from profiling - but we have to
 live with it since it's common. They use a tag called Video Card
 Gamma Tag (or vcgt) in ICC-profiles that contains calibration values.
 The calibration is applied before profile creation, where the vcgt
-  
+
 will be saved in your profile for convenience reasons: All color
 settings for the display device are stored in a common file.
 
@@ -182,8 +182,8 @@ using a tool like AdobeGamme oder xcalib. This may leed to
 posterization artifacts on your display (but doesn't affect
 printouts). You should tweak your monitor for perfect linearization
 as much as possible - the remaining tweaks might be part of a
-profile (, the "vcgt" tag). 
-  
+profile (, the "vcgt" tag).
+
 If you want to come around that drawback: bug your video card vendor
 and ask for >8bit LUTs (plus LUTs for every output connector).
 
@@ -216,7 +216,7 @@ On Win32-systems, some drivers are not correctly implemented. E.g.
 the NVidia Riva driver for Windows2000 and WindowsXP wrote nonsense
 values to the video cards RAMDAC (resulting in a gray display). I
 used for these cards an old NT-driver from a video card vendor.
-  
+
 The source code became messy in the last time because of numerous
 workarounds and a bad mixture of Win32, X11, ATI code and code for
 the different parsers used to get the gamma ramps from the profile.
@@ -240,7 +240,7 @@ utilization by other software.
   linear interpolation is used for creating the values in between
 - changed -n parameter: now the size of the simulated LUT must
   be given after -n/-noaction paramter
-      
+
 #### 0.7: 2007-06-23
 - major code-cleanup
 - fixed gamma limits for vcg-formulae
@@ -266,7 +266,7 @@ utilization by other software.
 - added loss calculation (option "-loss" or "-l") which shows how
   many steps are lost by calibrating the device
 - added limits of VideoCardGammaFormula to internal parser
-    
+
 #### 0.5: 2005-03-03
 - Win32 version added (compilable with MinGW)
   + support for command line options as usual
@@ -283,7 +283,7 @@ utilization by other software.
   locations for X11 and patched lcms libs and headers
 - beautified code for better readability
 - added sample profile which contains a vcg-table
-      
+
 #### 0.4: 2005-01-30
 - own implementation for parsing the vcgt tags added.
 - switch to lcms-1.13 (patched) instead of icclib
@@ -295,7 +295,7 @@ utilization by other software.
   the ability to use it and to make xcalib's code less confuscating
   apply the bundled patch to LCMS
 - minor README changes to ease readability
-    
+
 #### 0.3:
 - raise error if no vcg-tag available
 - profile no more a necessary parameter after -c and -h option
