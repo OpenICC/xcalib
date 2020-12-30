@@ -570,8 +570,6 @@ int
 main (int argc, char *argv[])
 {
   char in_name[256] = { '\000' };
-  char tag_name[40] = { '\000' };
-  int found;
   u_int16_t *r_ramp = NULL, *g_ramp = NULL, *b_ramp = NULL;
   int i;
   int clear = 0;
