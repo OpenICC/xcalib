@@ -177,12 +177,11 @@ Applying gamma ramps in the video-LUT has one big advantage: If used
 with proper values, all applications benefit from a monitor in a
 defined/calibrated state - although not using color management!
 
-But keep the drawback in mind: You will loose some resolution by
-using a tool like AdobeGamme oder xcalib. This may leed to
-posterization artifacts on your display (but doesn't affect
-printouts). You should tweak your monitor for perfect linearization
-as much as possible - the remaining tweaks might be part of a
-profile (, the "vcgt" tag). 
+But keep the drawback in mind: you will lose some resolution by using
+a tool like AdobeGamma over xcalib. This may lead to posterization
+artifacts on your display (but doesn't affect printouts). You should
+tweak your monitor for perfect linearization as much as possible -
+the remaining tweaks might be part of a profile (, the "vcgt" tag). 
   
 If you want to come around that drawback: bug your video card vendor
 and ask for >8bit LUTs (plus LUTs for every output connector).
@@ -222,12 +221,13 @@ workarounds and a bad mixture of Win32, X11, ATI code and code for
 the different parsers used to get the gamma ramps from the profile.
 This makes it hard to find the important code sections for others
 than me and might have lead to bugs or leaks. A following version
-may be written in C++ to ease modularisation of the code and allow
+may be written in C++ to ease modularization of the code and allow
 utilization by other software.
 
 ### history
 #### 0.10: 2018-01-10
 - Fix incorrect use of X11 screen and output; rename -s to -o option
+
 #### 0.9: 2014-11-09
 - fix rounding errors from upsampling of gamma ramps
 - fix -printramps uses integers
