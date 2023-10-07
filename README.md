@@ -225,6 +225,9 @@ may be written in C++ to ease modularization of the code and allow
 utilization by other software.
 
 ### history
+#### 0.11: 2023-10-07
+- allow flicker-free chaining of `-c` with `-a` ...
+
 #### 0.10: 2018-01-10
 - Fix incorrect use of X11 screen and output; rename -s to -o option
 
@@ -388,6 +391,6 @@ program, send me a picture postcard from your country/area to:
     GERMANY
 
 Please write on it your name and email-address and that you use
-xcalib-0.8 .
+xcalib-0.11 .
 
 EOF

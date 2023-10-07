@@ -947,7 +947,8 @@ main (int argc, char *argv[])
   gamma.red = 1.0;
   gamma.green = 1.0;
   gamma.blue = 1.0;
-  if (clear) {
+  // "&& !alter" allows flicker-free chaining of -c with -a ...
+  if (clear && !alter) {
 #ifndef FGLRX
     if(xrr_version >= 102)
     {
@@ -1048,14 +1049,21 @@ main (int argc, char *argv[])
 #ifndef _WIN32
     if (xrr_version >= 102)
     {
-      XRRCrtcGamma * gamma = 0;
-      if((gamma = XRRGetCrtcGamma(dpy, crtc)) == 0 )
-        warning ("XRRGetCrtcGamma() is unable to get display calibration");
+      if( clear ){
+        for( i = 0; i < ramp_size; i++ )
+          // same as "clear" above
+          r_ramp[i] = g_ramp[i] = b_ramp[i] = i * 65535 / ramp_size;
+      }
+      else {
+        XRRCrtcGamma * gamma = 0;
+        if((gamma = XRRGetCrtcGamma(dpy, crtc)) == 0 )
+          warning ("XRRGetCrtcGamma() is unable to get display calibration");
 
-      for (i = 0; i < ramp_size; i++) {
-        r_ramp[i] = gamma->red[i];
-        g_ramp[i] = gamma->green[i];
-        b_ramp[i] = gamma->blue[i];
+        for (i = 0; i < ramp_size; i++) {
+          r_ramp[i] = gamma->red[i];
+          g_ramp[i] = gamma->green[i];
+          b_ramp[i] = gamma->blue[i];
+        }
       }
     }
     else if (!XF86VidModeGetGammaRamp (dpy, screen, ramp_size, r_ramp, g_ramp, b_ramp))
