@@ -47,6 +47,33 @@
 #include <string.h>
 #include <sys/types.h>
 
+#ifdef INCLUDE_OYJL_C
+# include "extras/oyjl_args.c"
+#else
+# include <oyjl.h>
+# include <oyjl_macros.h>
+# include <oyjl_version.h>
+#endif
+extern char **environ;
+#ifdef OYJL_HAVE_LOCALE_H
+# include <locale.h>
+#endif
+#define MY_DOMAIN "xcalib"
+oyjlTranslation_s * trc = NULL;
+#ifdef INCLUDE_OYJL_C
+# ifdef _
+#  undef _
+# endif
+# define _(text) text
+# define oyjlUi_ToText oyjlUi_ToTextArgsBase
+# define oyjlUi_Release oyjlUi_ReleaseArgs
+#else
+# ifdef _
+#  undef _
+# endif
+# define _(text) oyjlTranslate( trc, text )
+#endif
+
 /* for X11 VidMode stuff */
 #ifndef _WIN32
 # include <X11/Xos.h>
@@ -83,6 +110,15 @@
 
 /* prototypes */
 void error (char *fmt, ...), warning (char *fmt, ...), message(char *fmt, ...);
+int myMessage                        ( int/*oyjlMSG_e*/    error_code,
+                                       const void        * context,
+                                       const char        * format,
+                                       ... );
+#define error(...) myMessage( oyjlMSG_ERROR, 0, __VA_ARGS__ )
+#define warning(format, ...) myMessage( oyjlMSG_CLIENT_CANCELED, 0, OYJL_DBG_FORMAT format, OYJL_DBG_ARGS,  __VA_ARGS__ )
+#define message(format, ...) myMessage( oyjlMSG_INFO, 0, OYJL_DBG_FORMAT format, OYJL_DBG_ARGS,  __VA_ARGS__ )
+//#define message(...) myMessage( oyjlMSG_INFO, 0, __VA_ARGS__ )
+#define usage() { fprintf( stderr, OYJL_DBG_FORMAT , OYJL_DBG_ARGS ); myUsage( ui ); } 
 
 #if 1
 # define BE_INT(a)    ((a)[3]+((a)[2]<<8)+((a)[1]<<16) +((a)[0]<<24))
@@ -108,61 +144,6 @@ struct xcalib_state_t {
   float blueMax;
   float gamma_cor;
 } xcalib_state = {0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0};
-
-
-void
-usage (void)
-{
-  fprintf (stdout, "xcalib %s\n", XCALIB_VERSION);
-  fprintf (stdout, "Copyright (C) 2004-2007 Stefan Doehla <stefan AT doehla DOT de>\n");
-  fprintf (stdout, "THIS PROGRAM COMES WITH ABSOLUTELY NO WARRANTY!\n");
-  fprintf (stdout, "\n");
-  fprintf (stdout, "usage:  xcalib [-options] ICCPROFILE\n");
-  fprintf (stdout, "     or xcalib [-options] -alter\n");
-  fprintf (stdout, "\n");
-  fprintf (stdout, "where the available options are:\n");
-#ifndef _WIN32
-  fprintf (stdout, "    -display <host:dpy>     or -d\n");
-  fprintf (stdout, "    -screen <screen-#>      or -s\n");
-  fprintf (stdout, "    -output <output-#>      or -o\n");
-#else
-  fprintf (stdout, "    -screen <monitor-#>     or -s\n");
-#endif
-#ifdef FGLRX
-  fprintf (stdout, "    -controller <card-#>    or -x\n");
-#endif
-  fprintf (stdout, "    -clear                  or -c\n");
-  fprintf (stdout, "    -noaction <LUT-size>    or -n\n");
-  fprintf (stdout, "    -verbose                or -v\n");
-  fprintf (stdout, "    -printramps             or -p\n");
-  fprintf (stdout, "    -loss                   or -l\n");
-  fprintf (stdout, "    -invert                 or -i\n");
-  fprintf (stdout, "    -gammacor <gamma>       or -gc\n");
-  fprintf (stdout, "    -brightness <percent>   or -b\n");
-  fprintf (stdout, "    -contrast <percent>     or -co\n");
-  fprintf (stdout, "    -red <gamma> <brightness-percent> <contrast-percent>\n");
-  fprintf (stdout, "    -green <gamma> <brightness-percent> <contrast-percent>\n");
-  fprintf (stdout, "    -blue <gamma> <brightness-percent> <contrast-percent>\n");
-#ifndef FGLRX
-  fprintf (stdout, "    -alter                  or -a\n");
-#endif
-  fprintf (stdout, "    -help                   or -h\n");
-  fprintf (stdout, "    -version\n");
-  fprintf (stdout, "\n");
-  fprintf (stdout,
-	   "last parameter must be an ICC profile containing a vcgt-tag\n");
-  fprintf (stdout, "\n");
-#ifndef _WIN32 
-  fprintf (stdout, "Example: ./xcalib -d :0 -s 0 -v bluish.icc\n");
-#else
-  fprintf (stdout, "Example: ./xcalib -v bluish.icc\n");
-#endif
-#ifndef FGLRX
-  fprintf (stdout, "Example: ./xcalib -red 1.1 10.0 100.0\n");
-#endif
-  fprintf (stdout, "\n");
-  exit (0);
-}
 
 #ifdef _WIN32
 /* Win32 monitor enumeration - code by gl.tter ( http://gl.tter.org ) */
@@ -307,7 +288,7 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
     {
       if(fseek(fp, 0+tagOffset, SEEK_SET))
         break;
-      message("mLUT found (Profile Mechanic)\n");
+      message("mLUT found (Profile Mechanic) %s", filename);
       redRamp = (unsigned short *) malloc ((256) * sizeof (unsigned short));
       greenRamp = (unsigned short *) malloc ((256) * sizeof (unsigned short));
       blueRamp = (unsigned short *) malloc ((256) * sizeof (unsigned short));
@@ -342,7 +323,7 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
     if(tagName == VCGT_TAG)
     {
       fseek(fp, 0+tagOffset, SEEK_SET);
-      message("vcgt found\n");
+      message("vcgt found %s", filename);
       bytesRead = fread(cTmp, 1, 4, fp);
       tagName = BE_INT(cTmp);
       if(tagName != VCGT_TAG)
@@ -403,9 +384,9 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
                 rMax, gMax, bMax);
           break;
         }
-        message("Red:   Gamma %f \tMin %f \tMax %f\n", rGamma, rMin, rMax);
-        message("Green: Gamma %f \tMin %f \tMax %f\n", gGamma, gMin, gMax);
-        message("Blue:  Gamma %f \tMin %f \tMax %f\n", bGamma, bMin, bMax);
+        message("Red:   Gamma %f \tMin %f \tMax %f", rGamma, rMin, rMax);
+        message("Green: Gamma %f \tMin %f \tMax %f", gGamma, gMin, gMax);
+        message("Blue:  Gamma %f \tMin %f \tMax %f", bGamma, bMin, bMax);
 
         for(j=0; j<nEntries; j++)
         {
@@ -441,10 +422,10 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
           numChannels = 3;
         }
 
-        message ("channels:        \t%d\n", numChannels);
-        message ("entry size:      \t%dbits\n",entrySize  * 8);
-        message ("entries/channel: \t%d\n", numEntries);
-        message ("tag size:        \t%d\n", tagSize);
+        message ("channels:        \t%d", numChannels);
+        message ("entry size:      \t%dbits",entrySize  * 8);
+        message ("entries/channel: \t%d", numEntries);
+        message ("tag size:        \t%d", tagSize);
                                                 
         if(numChannels!=3)          /* assume we have always RGB */
           break;
@@ -566,24 +547,379 @@ read_vcgt_internal(const char * filename, u_int16_t * rRamp, u_int16_t * gRamp,
   return retVal;
 }
 
-int
-main (int argc, char *argv[])
+int          myMessage               ( int/*oyjlMSG_e*/    error_code,
+                                       const void        * context_object OYJL_UNUSED,
+                                       const char        * format,
+                                       ... )
 {
-  char in_name[256] = { '\000' };
-  char tag_name[40] = { '\000' };
-  int found;
+  int error = 0;
+  const char * status_text = NULL;   
+#if !defined (OYJL_ARGS_BASE)          
+  char * text = NULL;                  
+                                       
+  OYJL_CREATE_VA_STRING(format, text, malloc, return 1)    
+#endif /* OYJL_ARGS_BASE */
+
+  if(!xcalib_state.verbose && error_code == oyjlMSG_INFO)
+    return error;
+
+  if(error_code == oyjlMSG_INFO) status_text = oyjlTermColor(oyjlGREEN,"Info: ");
+  if(error_code == oyjlMSG_CLIENT_CANCELED) status_text = oyjlTermColor(oyjlBLUE,"Client Canceled: ");
+  if(error_code == oyjlMSG_INSUFFICIENT_DATA) status_text = oyjlTermColor(oyjlRED,_("Insufficient Data:"));
+  if(error_code == oyjlMSG_ERROR) status_text = oyjlTermColor(oyjlRED,_("Usage Error:"));
+  if(error_code == oyjlMSG_PROGRAM_ERROR) status_text = oyjlTermColor(oyjlRED,_("Program Error:"));
+  if(error_code == oyjlMSG_SECURITY_ALERT) status_text = oyjlTermColor(oyjlRED,_("Security Alert:"));
+
+  if(status_text)
+    fprintf( stderr, "%s ", status_text );
+#if !defined (OYJL_ARGS_BASE)
+  if(text)
+    fprintf( stderr, "%s\n", text ); 
+  free( text ); text = 0;
+#else /* OYJL_ARGS_BASE */
+  if(format)
+    fprintf( stderr, "%s\n", format ); 
+  oyjlArgsBaseLoadCore(); /* how to pass through va_args */
+#endif /* OYJL_ARGS_BASE */            
+  fflush( stderr );                    
+
+  
+  return error;
+}
+
+void myUsage( oyjlUi_s * ui )
+{
+  char * t = oyjlUi_ToText( ui, oyjlARGS_EXPORT_HELP, 0 );
+  if(t) { puts( t ); free(t); t = NULL; }
+}
+
+
+static oyjlOptionChoice_s * listInput ( oyjlOption_s * o OYJL_UNUSED, int * y OYJL_UNUSED, oyjlOptions_s * opts OYJL_UNUSED )
+{   
+  oyjlOptionChoice_s * c = NULL;
+
+  int size = 0, i,n = 0;
+  char * result = oyjlReadCommandF( &size, "r", malloc, "oyranos-profile oyjl-list" );
+  char ** list = oyjlStringSplit2( result, "\n", NULL, &n, NULL,0 );
+
+  if(list)
+  {
+    c = calloc(n+1, sizeof(oyjlOptionChoice_s));
+    if(c)
+    {
+      for(i = 0; i < n; ++i)
+      {
+        c[i].nick = strdup( list[i] );
+        c[i].name = strdup("");
+        c[i].description = strdup("");
+        c[i].help = strdup("");
+      }
+    }
+    free(list);
+  }
+
+  return c;
+}
+static oyjlOptionChoice_s * listDisplay ( oyjlOption_s * o OYJL_UNUSED, int * y OYJL_UNUSED, oyjlOptions_s * opts OYJL_UNUSED )
+{   
+  oyjlOptionChoice_s * c = NULL;
+
+  int size = 0, i,n = 0;
+  char * result = oyjlReadCommandF( &size, "r", malloc, "echo $DISPLAY" );
+  char ** list = oyjlStringSplit2( result, "\n", NULL, &n, NULL,0 );
+
+  if(list)
+  {
+    c = calloc(n+1, sizeof(oyjlOptionChoice_s));
+    if(c)
+    {
+      for(i = 0; i < n; ++i)
+      {
+        c[i].nick = strdup( list[i] );
+        c[i].name = strdup("");
+        c[i].description = strdup("");
+        c[i].help = strdup("");
+      }
+    }
+    free(list);
+  }
+
+  return c;
+}
+static oyjlOptionChoice_s * listScreen ( oyjlOption_s * o OYJL_UNUSED, int * y OYJL_UNUSED, oyjlOptions_s * opts OYJL_UNUSED )
+{   
+  oyjlOptionChoice_s * c = NULL;
+
+  int size = 0, i,n = 0;
+  char * result = oyjlReadCommandF( &size, "r", malloc, "xrandr | grep Screen" );
+  char ** list = oyjlStringSplit2( result, "\n", NULL, &n, NULL,0 );
+
+  if(list)
+  {
+    c = calloc(n+1, sizeof(oyjlOptionChoice_s));
+    if(c)
+    {
+      for(i = 0; i < n; ++i)
+      {
+        if(!list[i][0]) break;
+        c[i].nick = strdup( oyjlTermColorF(oyjlNO_MARK, "%d", i ) );
+        c[i].name = strdup("");
+        c[i].description = strdup("");
+        c[i].help = strdup("");
+      }
+    }
+    free(list);
+  }
+
+  return c;
+}
+static oyjlOptionChoice_s * listOutput ( oyjlOption_s * o OYJL_UNUSED, int * y OYJL_UNUSED, oyjlOptions_s * opts OYJL_UNUSED )
+{   
+  oyjlOptionChoice_s * c = NULL;
+
+  int size = 0, i,n = 0;
+  char * result = oyjlReadCommandF( &size, "r", malloc, "xrandr --listactivemonitors | grep x" );
+  char ** list = oyjlStringSplit2( result, "\n", NULL, &n, NULL,0 );
+
+  if(list)
+  {
+    c = calloc(n+1, sizeof(oyjlOptionChoice_s));
+    if(c)
+    {
+      for(i = 0; i < n; ++i)
+      {
+        if(!list[i][0]) break;
+        c[i].nick = strdup( oyjlTermColorF(oyjlNO_MARK, "%d", i ) );
+        c[i].name = strdup("");
+        c[i].description = strdup("");
+        c[i].help = strdup("");
+      }
+    }
+    free(list);
+  }
+
+  return c;
+}
+
+/* This function is called the
+ * * first time for GUI generation and then
+ * * for executing the tool.
+ */
+int myMain( int argc, const char ** argv )
+{
+  const char * in_name = NULL;
+  int i;
+
+
+  int error = 0;
+  int state = 0;
+  int clear = 0;
+  const char * display = 0;
+  const char * screen = 0;
+  const char * output = 0;
+#ifdef FGLRX
+  int controller = -1;
+#endif
+  int verbose = 0;
+  int invert = 0;
+  const char * icc_file_name = 0;
+  int alter = 0;
+  double gamma_ = 0.0;
+  double brightness = -1.0;
+  double contrast = 0;
+  double red_gamma = 0;
+  double red_brightness = -1.0;
+  double red_contrast = 0;
+  double green_gamma = 0;
+  double green_brightness = -1.0;
+  double green_contrast = 0;
+  double blue_gamma = 0;
+  double blue_brightness = -1.0;
+  double blue_contrast = 0;
+  int noaction = 0;
+  const char * printramps = 0;
+  int loss = 0;
+  const char * help = 0;
+  int version = 0;
+  const char * render = 0;
+  const char * export_var = 0;
+
+  /* handle options */
+  /* Select a nick from *version*, *manufacturer*, *copyright*, *license*,
+   * *url*, *support*, *download*, *sources*, *oyjl_module_author* and
+   * *documentation*. Choose what you see fit. Add new ones as needed. */
+  oyjlUiHeaderSection_s sections[] = {
+    /* type, nick,            label, name,                     description */
+    {"oihs", "version",       NULL,  _(XCALIB_VERSION),              NULL},
+    {"oihs", "manufacturer",  NULL,  _("Stefan Dohla <stefan AT doehla DOT de>"),    _("http://www.etg.e‐technik.uni‐erlangen.de/web/doe/xcalib/")},
+    {"oihs", "documentation", NULL,  NULL,                     _("The tool loads ’vcgt’‐tag of ICC profiles to the server using the XRandR/XVidMode/GDI Extension in order to load calibrate curves to your graphics card.")},
+    {"oihs", "date",          NULL,  NULL,                     _("December 14, 2023")},
+    {"",0,0,0,0}};
+
+  /* declare the option choices  *   nick,          name,               description,                  help */
+  oyjlOptionChoice_s p_choices[] = {{"TEXT",        "TEXT",             NULL,                         NULL},
+                                    {"SVG",         "SVG",              NULL,                         NULL},
+                                    {NULL,NULL,NULL,NULL}};
+  oyjlOptionChoice_s E_choices[] = {{_("DISPLAY"),  _("Under X11 systems this variable will hold the display name as used for the -d and -s option."),NULL,NULL},
+                                    {NULL,NULL,NULL,NULL}};
+
+  oyjlOptionChoice_s A_choices[] = {{_("Assign the VCGT curves of a ICC profile to a screen"),_("xcalib ‐d :0 ‐s 0 ‐v profile_with_vcgt_tag.icc"),NULL,NULL},
+                                    {_("Reset a screens hardware LUT in order to do a calibration"),_("xcalib ‐d :0 ‐s 0 ‐c"),NULL,NULL},
+                                    {NULL,NULL,NULL,NULL}};
+
+  oyjlOptionChoice_s L_choices[] = {{_("oyjl-args(1)"),NULL,            NULL,                         NULL},
+                                    {NULL,NULL,NULL,NULL}};
+
+  /* declare options - the core information; use previously declared choices */
+  oyjlOption_s oarray[] = {
+  /* type,   flags,                      o,  option,          key,      name,          description,                  help, value_name,         
+        value_type,              values,             variable_type, variable_name, properties */
+    {"oiwi", 0,                          "c","clear",         NULL,     _("Clear"),    _("Clear Gamma LUT"),         _("Reset the Video Card Gamma Table (VCGT) to linear values."),NULL,
+        oyjlOPTIONTYPE_NONE,     {0},                oyjlINT,       {.i=&clear},   NULL},
+    {"oiwi", OYJL_OPTION_FLAG_EDITABLE,  "d","display",       NULL,     _("Display"),  _("host:dpy"),                NULL, _("STRING"),
+        oyjlOPTIONTYPE_FUNCTION,   {.getChoices = listDisplay}, oyjlSTRING, {.s=&display},NULL},
+    {"oiwi", OYJL_OPTION_FLAG_EDITABLE,  "s","screen",        NULL,     _("Screen"),   _("Screen Number"),           NULL, _("NUMBER"),
+        oyjlOPTIONTYPE_FUNCTION,   {.getChoices = listScreen}, oyjlSTRING, {.s=&screen},NULL},
+#ifdef FGLRX
+    {"oiwi", OYJL_OPTION_FLAG_EDITABLE,  "x","controller",    NULL,     _("Controller"),   _("ATI Controller Index"),_("For FGLRX only"), _("NUMBER"),
+        oyjlOPTIONTYPE_CHOICE,   {0},                oyjlINT,       {.i=&controller},  NULL},
+#endif
+    {"oiwi", OYJL_OPTION_FLAG_EDITABLE|OYJL_OPTION_FLAG_IMMEDIATE,  "o","output",        NULL,     _("Output"),   _("Output Number"),           _("It appears in the order as listed in xrandr tool."),_("NUMBER"),
+        oyjlOPTIONTYPE_FUNCTION,   {.getChoices = listOutput}, oyjlSTRING, {.s=&output},NULL},
+    {"oiwi", 0,                          "i","invert",        NULL,     _("Invert"),   _("Invert the LUT"),          NULL, NULL,
+        oyjlOPTIONTYPE_NONE,     {0},                oyjlINT,       {.i=&invert},  NULL},
+    {"oiwi", OYJL_OPTION_FLAG_EDITABLE,  "@",NULL,            NULL,     _("ICC Profle"),_("File Name of a ICC Profile"),NULL,_("ICC_FILE_NAME"),
+        oyjlOPTIONTYPE_FUNCTION,   {.getChoices = listInput}, oyjlSTRING, {.s=&icc_file_name},NULL},
+    {"oiwi", 0,                          "a","alter",         NULL,     _("Alter"),    _("Alter Table"),             _("Works according to parameters without ICC Profile."),NULL,
+        oyjlOPTIONTYPE_NONE,     {0},                oyjlINT,       {.i=&alter},   NULL},
+    {"oiwi", 0,                          "n","noaction",      NULL,     _("No Action"), _("Do not alter video-LUTs."),_("Work's best in conjunction with -v!"), NULL,
+        oyjlOPTIONTYPE_NONE,     {0},                oyjlINT,       {.i=&noaction},           NULL},
+    {"oiwi", OYJL_OPTION_FLAG_ACCEPT_NO_ARG|OYJL_OPTION_FLAG_IMMEDIATE,"p","printramps", NULL,     _("Print Ramps"), _("Print Values on stdout."),NULL, _("FORMAT"),
+        oyjlOPTIONTYPE_CHOICE,   {.choices.list = (oyjlOptionChoice_s*)oyjlStringAppendN( NULL, (const char*)p_choices, sizeof(p_choices), 0 )},                oyjlSTRING,       {.s=&printramps},        NULL},
+    {"oiwi", 0,                          "l","loss",          NULL,     _("Loss"),     _("Print error introduced by applying ramps to stdout."),NULL, NULL,
+        oyjlOPTIONTYPE_NONE,     {0},                oyjlINT,       {.i=&loss},        NULL},
+    {"oiwi", 0,                          "g","gamma",         NULL,     _("Gamma"),    _("Specify Gamma"),           _("Global gamma correction value (use 2.2 for WinXP Color Control-like behaviour)"), _("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 1, .start = 0.1, .end = 5, .tick = 0.1}},oyjlDOUBLE,{.d=&gamma_},NULL},
+    {"oiwi", 0,                          "b","brightness",    NULL,     _("Brightness"),_("Specify Lightness Percentage"),NULL,_("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 0, .start = 0.0, .end = 99, .tick = 1}},oyjlDOUBLE,{.d=&brightness},NULL},
+    {"oiwi", 0,                          "k","contrast",      NULL,     _("Contrast"), _("Specify Contrast Percentage"),_("Set maximum value relative to brightness."),_("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 100, .start = 1.0, .end = 100, .tick = 1}},oyjlDOUBLE,{.d=&contrast},NULL},
+    {"oiwi", 0,                          "R","red-gamma",     NULL,     _("Red Gamma"),_("Specify Red Gamma "),      NULL, _("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 1, .start = 0.1, .end = 5, .tick = 0.1}},oyjlDOUBLE,{.d=&red_gamma},NULL},
+    {"oiwi", OYJL_OPTION_FLAG_IMMEDIATE, "S","red-brightness",NULL,     _("Red Brightness"),_("Specify Red Brightness Percentage"),NULL,_("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 0.0, .start = 0.0, .end = 99, .tick = 1}},oyjlDOUBLE,{.d=&red_brightness},NULL},
+    {"oiwi", OYJL_OPTION_FLAG_IMMEDIATE, "T","red-contrast",  NULL,     _("Red Contrast"),_("Specify Red Contrast Percentage"),_("Set maximum value relative to brightness."),_("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 100, .start = 1.0, .end = 100, .tick = 1}},oyjlDOUBLE,{.d=&red_contrast},NULL},
+    {"oiwi", 0,                          "G","green-gamma",   NULL,     _("Green Gamma"),_("Specify Green Gamma "),  NULL, _("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 1.0, .start = 0.1, .end = 5, .tick = 0.1}},oyjlDOUBLE,{.d=&green_gamma},NULL},
+    {"oiwi", OYJL_OPTION_FLAG_IMMEDIATE, "H","green-brightness",NULL,   _("Green Brightness"),_("Specify Green Brightness Percentage"),NULL,_("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 0, .start = 0.0, .end = 99, .tick = 1}},oyjlDOUBLE,{.d=&green_brightness},NULL},
+    {"oiwi", OYJL_OPTION_FLAG_IMMEDIATE, "I","green-contrast",NULL,     _("Green Contrast"),_("Specify Green Contrast Percentage"),_("Set maximum value relative to brightness."),_("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 100, .start = 1.0, .end = 100, .tick = 1}},oyjlDOUBLE,{.d=&green_contrast},NULL},
+    {"oiwi", 0,                          "B","blue-gamma",    NULL,     _("Blue Gamma"),_("Specify Blue Gamma "),    NULL, _("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 1.0, .start = 0.1, .end = 5, .tick = 0.1}},oyjlDOUBLE,{.d=&blue_gamma},NULL},
+    {"oiwi", OYJL_OPTION_FLAG_IMMEDIATE, "C","blue-brightness",NULL,    _("Blue Brightness"),_("Specify Blue Brightness Percentage"),NULL,_("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 0, .start = 0.0, .end = 99, .tick = 1}},oyjlDOUBLE,{.d=&blue_brightness},NULL},
+    {"oiwi", OYJL_OPTION_FLAG_IMMEDIATE, "D","blue-contrast", NULL,     _("Blue Contrast"),_("Specify Blue Contrast Percentage"),_("Set maximum value relative to brightness."),_("NUMBER"),
+        oyjlOPTIONTYPE_DOUBLE,   {.dbl = {.d = 100, .start = 1.0, .end = 100, .tick = 1}},oyjlDOUBLE,{.d=&blue_contrast},NULL},
+    {"oiwi", OYJL_OPTION_FLAG_ACCEPT_NO_ARG, "h","help",      NULL,     NULL,          NULL,                         NULL, NULL,
+        oyjlOPTIONTYPE_CHOICE,   {0},                oyjlSTRING,    {.s=&help}, NULL},
+    {"oiwi", 0,                        NULL, "synopsis",      NULL,     NULL,          NULL,                         NULL, NULL,
+        oyjlOPTIONTYPE_NONE,     {0},                oyjlNONE,      {0}, NULL },
+    {"oiwi", 0,                          "v","verbose",       NULL,     _("Verbose"),  _("Verbose"),                 NULL, NULL,
+        oyjlOPTIONTYPE_NONE,     {0},                oyjlINT,       {.i=&verbose}, NULL},
+    {"oiwi", 0,                          "V","version",       NULL,     _("Version"),  _("Version"),                 NULL, NULL,
+        oyjlOPTIONTYPE_NONE,     {0},                oyjlINT,       {.i=&version}, NULL},
+    {"oiwi", OYJL_OPTION_FLAG_EDITABLE,  NULL,"render",       NULL,     _("Render"),   NULL,                         NULL, _("STRING"),
+        oyjlOPTIONTYPE_CHOICE,   {0},                oyjlSTRING,    {.s=&render},  NULL},
+    {"oiwi", 0,                          "E","man-environment_variables",NULL,    NULL,NULL,                   NULL, NULL,
+        oyjlOPTIONTYPE_CHOICE,   {.choices = {(oyjlOptionChoice_s*) oyjlStringAppendN( NULL, (const char*)E_choices, sizeof(E_choices), malloc ), 0}},oyjlNONE,{0},NULL},
+    {"oiwi", 0,                          "A","man-examples",  NULL,     NULL, NULL,                      NULL, NULL,
+        oyjlOPTIONTYPE_CHOICE,   {.choices = {(oyjlOptionChoice_s*) oyjlStringAppendN( NULL, (const char*)A_choices, sizeof(A_choices), malloc ), 0}},oyjlNONE,{0},NULL},
+    {"oiwi", 0,                          "L","man-see_also",  NULL,     NULL, NULL,                      NULL, NULL,
+        oyjlOPTIONTYPE_CHOICE,   {.choices = {(oyjlOptionChoice_s*) oyjlStringAppendN( NULL, (const char*)L_choices, sizeof(L_choices), malloc ), 0}},oyjlNONE,{0},NULL},
+    /* default option template -X|--export */
+    {"oiwi", 0, "X", "export", NULL, NULL, NULL, NULL, NULL, oyjlOPTIONTYPE_CHOICE, {.choices = {NULL, 0}}, oyjlSTRING, {.s=&export_var}, NULL },
+    {"",0,0,NULL,NULL,NULL,NULL,NULL, NULL, oyjlOPTIONTYPE_END, {0},oyjlNONE,{0},0}
+  };
+
+  /* declare option groups, for better syntax checking and UI groups */
+  oyjlOptionGroup_s groups[] = {
+  /* type,   flags, name,               description,                  help,               mandatory,     optional,      detail,        properties */
+    {"oiwg", 0,     NULL,               _("Set basic parameters"),    NULL,               NULL,          NULL,          "d,s,o,a,n,p,l", NULL},
+    {"oiwg", 0,     NULL,               _("Assign"),                  NULL,               "@",           NULL,          "@",           NULL},
+    {"oiwg", 0,     NULL,               _("Clear"),                   NULL,               "c,d,s",       "o,v",         "c",           NULL},
+    {"oiwg", 0,     NULL,               _("Invert"),                  NULL,               "i,d,s,@|a",   "o,v,n,p,l",   "i",           NULL},
+    {"oiwg", 0,     NULL,               _("Overall Appearance"),      NULL,               "g,b,k,d,s,@|a","o,v,n,p,l",  "g,b,k",       NULL},
+    {"oiwg", 0,     NULL,               _("Per Channel Appearance"),  NULL,               "R,G,B,d,s,@|a","S,T,H,I,C,D,o,v,n,p,l","R,S,T,G,H,I,B,C,D",NULL},
+    {"oiwg", 0,     NULL,               _("Show"),                    NULL,               "p,d,s",       "o,v",         "p",           NULL},
+    {"oiwg", 0,     _("Misc"),          _("General options"),         NULL,               "h,V,render",  "v",           "h,render,V,v",NULL},
+    {"",0,0,0,0,0,0,0,0}
+  };
+
+  oyjlUi_s * ui = oyjlUi_Create( argc, argv, /* argc+argv are required for parsing the command line options */
+                                       "xcalib", _("Monitor Calibration Loader"), _("Tiny monitor calibration loader for Xorg and Windows."),
+#ifdef __ANDROID__
+                                       ":/images/logo.svg", // use qrc
+#else
+                                       "xcalib",
+#endif
+                                       sections, oarray, groups, &state );
+  if( state & oyjlUI_STATE_EXPORT && !ui )
+    goto clean_main;
+  if(state & oyjlUI_STATE_HELP)
+  {
+    fprintf( stderr, "%s\n\tman xcalib\n\n", _("For more information read the man page:") );
+    goto clean_main;
+  }
+
+  if(ui && verbose)
+  {
+#ifndef INCLUDE_OYJL_C
+    char * json = oyjlOptions_ResultsToJson( ui->opts, OYJL_JSON );
+    if(json)
+      fputs( json, stderr );
+    fputs( "\n", stderr );
+#endif
+
+    int count = 0;
+    char ** results = oyjlOptions_ResultsToList( ui->opts, NULL, &count );
+    for(i = 0; i < count; ++i) fprintf( stderr, "%s\n", results[i] );
+    oyjlStringListRelease( &results, count, free );
+    fputs( "\n", stderr );
+  }
+
+  if(ui && (export_var && strcmp(export_var,"json+command") == 0))
+  {
+    char * json = oyjlUi_ToText( ui, oyjlARGS_EXPORT_JSON, 0 ),
+         * json_commands = NULL;
+    oyjlStringAdd( &json_commands, malloc, free, "{\n  \"command_set\": \"%s\",", argv[0] );
+    oyjlStringAdd( &json_commands, malloc, free, "%s", &json[1] ); /* skip opening '{' */
+    puts( json_commands );
+    goto clean_main;
+  }
+
+  /* Render boilerplate */
+  if(ui && render)
+  {
+#if !defined(NO_OYJL_ARGS_RENDER)
+    int debug = verbose;
+    oyjlTermColorInit( OYJL_RESET_COLORTERM | OYJL_FORCE_COLORTERM ); /* show rich text format on non GNU color extension environment */
+    oyjlArgsRender( argc, argv, NULL, NULL,NULL, debug, ui, myMain );
+#else
+    fprintf( stderr, "No render support compiled in. For a GUI you might by able to use -X json+command and load into oyjl-args-render viewer.\n" );
+#endif
+  } else if(ui)
+  {
+    /* ... working code goes here ... */
   u_int16_t *r_ramp = NULL, *g_ramp = NULL, *b_ramp = NULL;
   int i;
-  int clear = 0;
-  int alter = 0;
-  int donothing = 0;
-  int printramps = 0;
-  int calcloss = 0;
-  int invert = 0;
+  int donothing = noaction;
+  int calcloss = loss;
   int correction = 0;
   u_int16_t tmpRampVal = 0;
   unsigned int r_res, g_res, b_res;
-  int screen = -1;
+  in_name = icc_file_name;
 
 #ifdef FGLRX
   unsigned
@@ -594,10 +930,9 @@ main (int argc, char *argv[])
   /* X11 */
   XF86VidModeGamma gamma;
   Display *dpy = NULL;
-  char *displayname = NULL;
-  int xoutput = 0;
+  char *displayname = display;
+  int xoutput = output?atoi(output):0;
 #ifdef FGLRX
-  int controller = -1;
   FGLRX_X11Gamma_C16native fglrx_gammaramps;
 #endif
 #else
@@ -612,7 +947,7 @@ main (int argc, char *argv[])
   HDC hDc = NULL;
 #endif
 
-  xcalib_state.verbose = 0;
+  xcalib_state.verbose = verbose;
 
   /* begin program part */
 #ifdef _WIN32
@@ -630,162 +965,34 @@ main (int argc, char *argv[])
     usage ();
 #endif
 
-  for (i = 1; i < argc; ++i) {
-    /* help */
-    if (!strcmp (argv[i], "-h") || !strcmp (argv[i], "-help")) {
-      usage ();
-      exit (0);
-    }
-    /* verbose mode */
-    if (!strcmp (argv[i], "-v") || !strcmp (argv[i], "-verbose")) {
-      xcalib_state.verbose = 1;
-      continue;
-    }
-    /* version */
-    if (!strcmp (argv[i], "-version")) {
-        fprintf(stdout, "xcalib " XCALIB_VERSION "\n");
-        exit (0);
-    }
-#ifndef _WIN32
-    /* X11 display */
-    if (!strcmp (argv[i], "-d") || !strcmp (argv[i], "-display")) {
-      if (++i >= argc)
-        usage ();
-        displayname = argv[i];
-        continue;
-    }
-#endif
-    /* X11 screen / Win32 monitor index */
-    if (!strcmp (argv[i], "-s") || !strcmp (argv[i], "-screen")) {
-      if (++i >= argc)
-        usage ();
-      screen = atoi (argv[i]);
-      continue;
-    }
-#ifndef _WIN32
-    /* X11 output */
-    if (!strcmp (argv[i], "-o") || !strcmp (argv[i], "-output")) {
-      if (++i >= argc)
-        usage ();
-        xoutput = atoi (argv[i]);
-        continue;
-    }
-#endif
-#ifdef FGLRX
-    /* ATI controller index (for FGLRX only) */
-    if (!strcmp (argv[i], "-x") || !strcmp (argv[i], "-controller")) {
-      if (++i >= argc)
-        usage ();
-      controller = atoi (argv[i]);
-      continue;
-    }
-#endif
-    /* print ramps to stdout */
-    if (!strcmp (argv[i], "-p") || !strcmp (argv[i], "-printramps")) {
-      printramps = 1;
-      continue;
-    }
-    /* print error introduced by applying ramps to stdout */
-    if (!strcmp (argv[i], "-l") || !strcmp (argv[i], "-loss")) {
-      calcloss = 1;
-      continue;
-    }
-    /* invert the LUT */
-    if (!strcmp (argv[i], "-i") || !strcmp (argv[i], "-invert")) {
-      invert = 1;
-      continue;
-    }
-    /* clear gamma lut */
-    if (!strcmp (argv[i], "-c") || !strcmp (argv[i], "-clear")) {
-      clear = 1;
-      continue;
-    }
-#ifndef FGLRX
-    /* alter existing lut */
-    if (!strcmp (argv[i], "-a") || !strcmp (argv[i], "-alter")) {
-      alter = 1;
-      continue;
-    }
-#endif
-    /* do not alter video-LUTs : work's best in conjunction with -v! */
-    if (!strcmp (argv[i], "-n") || !strcmp (argv[i], "-noaction")) {
-      donothing = 1;
-      if (++i >= argc)
-        usage();
-      ramp_size = atoi(argv[i]);
-      continue;
-    }
-    /* global gamma correction value (use 2.2 for WinXP Color Control-like behaviour) */
-    if (!strcmp (argv[i], "-gc") || !strcmp (argv[i], "-gammacor")) {
-      if (++i >= argc)
-        usage();
-      xcalib_state.gamma_cor = atof (argv[i]);
+    if(gamma_ != 0.0)
+    {
+      xcalib_state.gamma_cor = gamma_;
+      if(xcalib_state.verbose)
+        message ("gamma: %f", xcalib_state.gamma_cor);
       correction = 1;
-      continue;
     }
     /* take additional brightness into account */
-    if (!strcmp (argv[i], "-b") || !strcmp (argv[i], "-brightness")) {
-      double brightness = 0.0;
-      if (++i >= argc)
-        usage();
-      brightness = atof(argv[i]);
-      if(brightness < 0.0 || brightness > 99.0)
-      {
-        warning("brightness is out of range 0.0-99.0");
-        continue;
-      }
+    if (brightness != -1.0) {
       xcalib_state.redMin = xcalib_state.greenMin = xcalib_state.blueMin = brightness / 100.0;
       xcalib_state.redMax = xcalib_state.greenMax = xcalib_state.blueMax =
         (1.0 - xcalib_state.blueMin) * xcalib_state.blueMax + xcalib_state.blueMin;
       
       correction = 1;
-      continue;
     }
     /* take additional contrast into account */
-    if (!strcmp (argv[i], "-co") || !strcmp (argv[i], "-contrast")) {
-      double contrast = 100.0;
-      if (++i >= argc)
-        usage();
-      contrast = atof(argv[i]);
-      if(contrast < 1.0 || contrast > 100.0)
-      {
-        warning("contrast is out of range 1.0-100.0");
-        continue;
-      }
+    if (contrast != 0.0) {
       xcalib_state.redMax = xcalib_state.greenMax = xcalib_state.blueMax = contrast / 100.0;
       xcalib_state.redMax = xcalib_state.greenMax = xcalib_state.blueMax =
         (1.0 - xcalib_state.blueMin) * xcalib_state.blueMax + xcalib_state.blueMin;
  
       correction = 1;
-      continue;
     }
     /* additional red calibration */ 
-    if (!strcmp (argv[i], "-red")) {
-      double gamma = 1.0, brightness = 0.0, contrast = 100.0;
-      if (++i >= argc)
-        usage();
-      gamma = atof(argv[i]);
-      if(gamma < 0.1 || gamma > 5.0)
-      {
-        warning("gamma is out of range 0.1-5.0");
-        continue;
-      }
-      if (++i >= argc)
-        usage();
-      brightness = atof(argv[i]);
-      if(brightness < 0.0 || brightness > 99.0)
-      {
-        warning("brightness is out of range 0.0-99.0");
-        continue;
-      }
-      if (++i >= argc)
-        usage();
-      contrast = atof(argv[i]);
-      if(contrast < 1.0 || contrast > 100.0)
-      {
-        warning("contrast is out of range 1.0-100.0");
-        continue;
-      }
+    if (red_gamma != 0.0) {
+      double gamma = red_gamma,
+             brightness = red_brightness != -1.0 ? red_brightness : 0.0,
+             contrast = red_contrast != 0.0 ? red_contrast : 100.0;
  
       xcalib_state.redMin = brightness / 100.0;
       xcalib_state.redMax =
@@ -793,71 +1000,27 @@ main (int argc, char *argv[])
       xcalib_state.redGamma = gamma;
  
       correction = 1;
-      continue;
     }
     /* additional green calibration */
-    if (!strcmp (argv[i], "-green")) {
-      double gamma = 1.0, brightness = 0.0, contrast = 100.0;
-      if (++i >= argc)
-        usage();
-      gamma = atof(argv[i]);
-      if(gamma < 0.1 || gamma > 5.0)
-      {
-        warning("gamma is out of range 0.1-5.0");
-        continue;
-      }
-      if (++i >= argc)
-        usage();
-      brightness = atof(argv[i]);
-      if(brightness < 0.0 || brightness > 99.0)
-      {
-        warning("brightness is out of range 0.0-99.0");
-        continue;
-      }
-      if (++i >= argc)
-        usage();
-      contrast = atof(argv[i]);
-      if(contrast < 1.0 || contrast > 100.0)
-      {
-        warning("contrast is out of range 1.0-100.0");
-        continue;
-      }
+    if (green_gamma != 0.0) {
+      double gamma = green_gamma,
+             brightness = green_brightness != -1.0 ? green_brightness : 0.0,
+             contrast = green_contrast != 0.0 ? green_contrast : 100.0;
  
       xcalib_state.greenMin = brightness / 100.0;
       xcalib_state.greenMax =
         (1.0 - xcalib_state.greenMin) * (contrast / 100.0) + xcalib_state.greenMin;
       xcalib_state.greenGamma = gamma;
  
+      if(xcalib_state.verbose)
+        message ("green gamma: %f %f %f", gamma, brightness, contrast);
       correction = 1;
-      continue;
     }
     /* additional blue calibration */
-    if (!strcmp (argv[i], "-blue")) {
-      double gamma = 1.0, brightness = 0.0, contrast = 100.0;
-      if (++i >= argc)
-        usage();
-      gamma = atof(argv[i]);
-      if(gamma < 0.1 || gamma > 5.0)
-      {
-        warning("gamma is out of range 0.1-5.0");
-        continue;
-      }
-      if (++i >= argc)
-        usage();
-      brightness = atof(argv[i]);
-      if(brightness < 0.0 || brightness > 99.0)
-      {
-        warning("brightness is out of range 0.0-99.0");
-        continue;
-      }
-      if (++i >= argc)
-        usage();
-      contrast = atof(argv[i]);
-      if(contrast < 1.0 || contrast > 100.0)
-      {
-        warning("contrast is out of range 1.0-100.0");
-        continue;
-      }
+    if (blue_gamma != 0.0) {
+      double gamma = blue_gamma,
+             brightness = blue_brightness != -1.0 ? blue_brightness : 0.0,
+             contrast = blue_contrast != 0.0 ? blue_contrast : 100.0;
  
       xcalib_state.blueMin = brightness / 100.0;
       xcalib_state.blueMax =
@@ -865,31 +1028,18 @@ main (int argc, char *argv[])
       xcalib_state.blueGamma = gamma;
  
       correction = 1;
-      continue;
     }
  
-    if (i != argc - 1 && !clear && i) {
-      usage ();
-    }
-    if(!clear || !alter)
-    {
-      if(strlen(argv[i]) < 255)
-        strcpy (in_name, argv[i]);
-      else
-        usage ();
-    }
-  }
-
 #ifdef _WIN32
-  if ((!clear || !alter) && (in_name[0] == '\0')) {
-    hDc = FindMonitor(screen);
+  if ((!clear || !alter) && (!in_name || in_name[0] == '\0')) {
+    hDc = FindMonitor(atoi(screen));
     win_profile_len = MAX_PATH;
     win_default_profile[0] = '\0';
     SetICMMode(hDc, ICM_ON);
     if(GetICMProfileA(hDc, (LPDWORD) &win_profile_len, (LPSTR)win_default_profile))
     {
       if(strlen(win_default_profile) < 255)
-        strcpy (in_name, win_default_profile);
+        in_name = win_default_profile;
       else
         usage();
     }
@@ -900,21 +1050,22 @@ main (int argc, char *argv[])
 
 #ifndef _WIN32
   /* X11 initializing */
+  int scr = 0;
   if ((dpy = XOpenDisplay (displayname)) == NULL) {
     if(!donothing)
       error ("Can't open display %s", XDisplayName (displayname));
     else
       warning("Can't open display %s", XDisplayName (displayname));
   }
-  else if (screen == -1)
-    screen = DefaultScreen (dpy);
+  else if (!screen)
+    scr = DefaultScreen (dpy);
 
   int xrr_version = -1;
   int crtc = 0;
   int major_versionp = 0;
   int minor_versionp = 0;
   int n = 0;
-  Window root = RootWindow(dpy, screen);
+  Window root = RootWindow(dpy, scr);
 
   XRRQueryVersion( dpy, &major_versionp, &minor_versionp );
   xrr_version = major_versionp*100 + minor_versionp;
@@ -935,7 +1086,7 @@ main (int argc, char *argv[])
         {
           crtc = output_info->crtc;
           ramp_size = XRRGetCrtcGammaSize( dpy, crtc );
-          message ("XRandR output:      \t%s\n", output_info->name);
+          message ("XRandR output:      \t%s", output_info->name);
         }
 
       XRRFreeOutputInfo( output_info ); output_info = 0;
@@ -953,7 +1104,7 @@ main (int argc, char *argv[])
     {
       XRRCrtcGamma * gamma = XRRAllocGamma (ramp_size);
       if(!gamma)
-        warning ("Unable to clear screen gamma");
+        warning ("Unable to clear screen gamma. %s", output);
       else
       {
         for(i=0; i < ramp_size; ++i)
@@ -962,7 +1113,7 @@ main (int argc, char *argv[])
         XRRFreeGamma (gamma);
       }
     } else
-    if (!XF86VidModeSetGamma (dpy, screen, &gamma))
+    if (!XF86VidModeSetGamma (dpy, scr, &gamma))
     {
 #else
     for(i = 0; i < 256; i++) {
@@ -970,7 +1121,7 @@ main (int argc, char *argv[])
       fglrx_gammaramps.GGamma[i] = i << 2;
       fglrx_gammaramps.BGamma[i] = i << 2;
     }
-    if (!FGLRX_X11SetGammaRamp_C16native_1024(dpy, screen, controller, 256, &fglrx_gammaramps)) {
+    if (!FGLRX_X11SetGammaRamp_C16native_1024(dpy, scr, controller, 256, &fglrx_gammaramps)) {
 #endif
       XCloseDisplay (dpy);
       error ("Unable to reset display gamma");
@@ -982,15 +1133,15 @@ main (int argc, char *argv[])
   if(!donothing)
   {
 #ifndef FGLRX
-    if (xrr_version < 102 && !XF86VidModeGetGammaRampSize (dpy, screen, &ramp_size)) {
+    if (xrr_version < 102 && !XF86VidModeGetGammaRampSize (dpy, scr, &ramp_size)) {
 #else
-    if (!FGLRX_X11GetGammaRampSize(dpy, screen, &ramp_size)) {
+    if (!FGLRX_X11GetGammaRampSize(dpy, scr, &ramp_size)) {
 #endif
       XCloseDisplay (dpy);
       if(!donothing)
         error ("Unable to query gamma ramp size");
       else {
-        warning ("Unable to query gamma ramp size - assuming 256");
+        warning ("Unable to query gamma ramp size - assuming 256 | %d", ramp_size);
         ramp_size = 256;
       }
     }
@@ -998,7 +1149,7 @@ main (int argc, char *argv[])
 #else /* _WIN32 */
   if(!donothing) {
     if(!hDc)
-      hDc = FindMonitor(screen);
+      hDc = FindMonitor(scr);
     if (clear) {
       if (!SetDeviceGammaRamp(hDc, &winGammaRamp))
         error ("Unable to reset display gamma");
@@ -1032,17 +1183,19 @@ main (int argc, char *argv[])
   g_ramp = (unsigned short *) malloc (ramp_size * sizeof (unsigned short));
   b_ramp = (unsigned short *) malloc (ramp_size * sizeof (unsigned short));
 
-  if(!alter)
+  int has_name = in_name && in_name[0] != '\000';
+  int print_only = printramps && !has_name;
+  if(!alter && !print_only)
   {
     if( (i = read_vcgt_internal(in_name, r_ramp, g_ramp, b_ramp, ramp_size)) <= 0) {
       if(i<0)
-        warning ("Unable to read file '%s'", in_name);
+        warning ("Unable to read file \"%s\"", in_name?in_name:"----");
       if(i == 0)
         warning ("No calibration data in ICC profile '%s' found", in_name);
       free(r_ramp);
       free(g_ramp);
       free(b_ramp);
-      exit(0);
+      return 0;
     }
   } else {
 #ifndef _WIN32
@@ -1050,7 +1203,7 @@ main (int argc, char *argv[])
     {
       XRRCrtcGamma * gamma = 0;
       if((gamma = XRRGetCrtcGamma(dpy, crtc)) == 0 )
-        warning ("XRRGetCrtcGamma() is unable to get display calibration");
+        warning ("XRRGetCrtcGamma() is unable to get display calibration", output );
 
       for (i = 0; i < ramp_size; i++) {
         r_ramp[i] = gamma->red[i];
@@ -1058,11 +1211,11 @@ main (int argc, char *argv[])
         b_ramp[i] = gamma->blue[i];
       }
     }
-    else if (!XF86VidModeGetGammaRamp (dpy, screen, ramp_size, r_ramp, g_ramp, b_ramp))
-      warning ("XF86VidModeGetGammaRamp() is unable to get display calibration");
+    else if (!XF86VidModeGetGammaRamp (dpy, scr, ramp_size, r_ramp, g_ramp, b_ramp))
+      warning ("XF86VidModeGetGammaRamp() is unable to get display calibration", output);
 #else
     if (!GetDeviceGammaRamp(hDc, &winGammaRamp))
-      warning ("GetDeviceGammaRamp() is unable to get display calibration");
+      warning ("GetDeviceGammaRamp() is unable to get display calibration", output);
 
     for (i = 0; i < ramp_size; i++) {
       r_ramp[i] = winGammaRamp.Red[i];
@@ -1082,7 +1235,7 @@ main (int argc, char *argv[])
     redMax = (double)r_ramp[ramp_size - 1] / 65535.0;
     redBrightness = redMin * 100.0;
     redContrast = (redMax - redMin) / (1.0 - redMin) * 100.0; 
-    message("Red Brightness: %f   Contrast: %f  Max: %f  Min: %f\n", redBrightness, redContrast, redMax, redMin);
+    message("Red Brightness: %f   Contrast: %f  Max: %f  Min: %f", redBrightness, redContrast, redMax, redMin);
   }
 
   {
@@ -1095,7 +1248,7 @@ main (int argc, char *argv[])
     greenMax = (double)g_ramp[ramp_size - 1] / 65535.0;
     greenBrightness = greenMin * 100.0;
     greenContrast = (greenMax - greenMin) / (1.0 - greenMin) * 100.0; 
-    message("Green Brightness: %f   Contrast: %f  Max: %f  Min: %f\n", greenBrightness, greenContrast, greenMax, greenMin);
+    message("Green Brightness: %f   Contrast: %f  Max: %f  Min: %f", greenBrightness, greenContrast, greenMax, greenMin);
   }
 
   {
@@ -1108,7 +1261,7 @@ main (int argc, char *argv[])
     blueMax = (double)b_ramp[ramp_size - 1] / 65535.0;
     blueBrightness = blueMin * 100.0;
     blueContrast = (blueMax - blueMin) / (1.0 - blueMin) * 100.0; 
-    message("Blue Brightness: %f   Contrast: %f  Max: %f  Min: %f\n", blueBrightness, blueContrast, blueMax, blueMin);
+    message("Blue Brightness: %f   Contrast: %f  Max: %f  Min: %f", blueBrightness, blueContrast, blueMax, blueMin);
   }
 
   if(correction != 0)
@@ -1125,11 +1278,11 @@ main (int argc, char *argv[])
                                 xcalib_state.blueGamma * (double) xcalib_state.gamma_cor
                   ) * (xcalib_state.blueMax - xcalib_state.blueMin)) + xcalib_state.blueMin); 
     }
-    message("Altering Red LUTs with   Gamma %f   Min %f   Max %f\n",
+    message("Altering Red LUTs with   Gamma %f   Min %f   Max %f",
        xcalib_state.redGamma, xcalib_state.redMin, xcalib_state.redMax);
-    message("Altering Green LUTs with   Gamma %f   Min %f   Max %f\n",
+    message("Altering Green LUTs with   Gamma %f   Min %f   Max %f",
        xcalib_state.greenGamma, xcalib_state.greenMin, xcalib_state.greenMax);
-    message("Altering Blue LUTs with   Gamma %f   Min %f   Max %f\n",
+    message("Altering Blue LUTs with   Gamma %f   Min %f   Max %f",
        xcalib_state.blueGamma, xcalib_state.blueMin, xcalib_state.blueMax);
   }
 
@@ -1137,11 +1290,11 @@ main (int argc, char *argv[])
     /* ramps should be increasing - otherwise content is nonsense! */
     for (i = 0; i < ramp_size - 1; i++) {
       if (r_ramp[i + 1] < r_ramp[i])
-        warning ("red gamma table not increasing");
+        warning ("red gamma table not increasing [%d]%d %d", i, r_ramp[i], r_ramp[i + 1]);
       if (g_ramp[i + 1] < g_ramp[i])
-        warning ("green gamma table not increasing");
+        warning ("green gamma table not increasing [%d]%d %d", i, r_ramp[i], r_ramp[i + 1]);
       if (b_ramp[i + 1] < b_ramp[i])
-        warning ("blue gamma table not increasing");
+        warning ("blue gamma table not increasing [%d]%d %d", i, r_ramp[i], r_ramp[i + 1]);
     }
   } else {
     for (i = 0; i < ramp_size; i++) {
@@ -1159,6 +1312,7 @@ main (int argc, char *argv[])
     }
   }
   if(calcloss) {
+    char * tr = NULL, * tg = NULL, * tb = NULL;
     fprintf(stdout, "Resolution loss for %d entries:\n", ramp_size);
     r_res = 0;
     g_res = 0;
@@ -1184,7 +1338,8 @@ main (int argc, char *argv[])
       }
       tmpRampVal = b_ramp[i];
     }
-    fprintf(stdout, "R: %d  G: %d  B: %d  colors lost\n", ramp_size - r_res, ramp_size - g_res, ramp_size - b_res );
+    myMessage( oyjlMSG_INFO, 0, OYJL_DBG_FORMAT "%s %d  %s %d  %s %d  colors lost", OYJL_DBG_ARGS, oyjlTermColorPtr(oyjlRED, &tr, "R:"), ramp_size - r_res, oyjlTermColorPtr(oyjlGREEN, &tg, "G:"), ramp_size - g_res, oyjlTermColorPtr(oyjlBLUE, &tb, "B:"), ramp_size - b_res );
+    free(tr); free(tg); free(tb);
   }
 #ifdef _WIN32
   for (i = 0; i < ramp_size; i++) {
@@ -1196,8 +1351,50 @@ main (int argc, char *argv[])
 #endif
  
   if(printramps)
-    for(i=0; i<ramp_size; i++)
-      fprintf(stdout,"%d %d %d\n", r_ramp[i], g_ramp[i], b_ramp[i]);
+  {
+    if(strcasecmp(printramps, "svg") == 0)
+    {
+#ifdef OYJL_HAVE_LOCALE_H
+      char * save_locale = oyjlStringCopy( setlocale(LC_NUMERIC, 0 ), malloc );
+      setlocale(LC_NUMERIC, "C");
+#endif
+      char * svg = oyjlStringCopy("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",0);
+      /* header */
+      oyjlStringAdd( &svg, 0,0, "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"1024\" height=\"1024\" viewBox=\"0 0 1024 1024\">\n");
+      /* background rectangle */
+      oyjlStringAdd( &svg, 0,0, "<rect x=\"-102.4\" y=\"-102.4\" width=\"1228.8\" height=\"1228.8\" fill=\"rgb(67.08324%, 67.07561%, 67.084765%)\" fill-opacity=\"0.5\"/>\n");
+      /* add frame */
+      oyjlStringAdd( &svg, 0,0, "<path fill=\"none\" stroke-width=\"5.6\" stroke=\"rgb(0%, 0%, 0%)\" d=\"M 25.398438 25.398438 L 998.199219 25.398438 L 998.199219 998.199219 L 25.398438 998.199219 Z M 25.398438 25.398438 \"/>\n");
+      /* red curve */
+      oyjlStringAdd( &svg, 0,0, "<path fill=\"none\" stroke-width=\"4\" stroke-linecap=\"butt\" stroke-linejoin=\"miter\" stroke=\"rgb(100%, 0%, 0%)\" d=\"");
+      for(i=0; i<ramp_size; i++)
+        oyjlStringAdd( &svg, 0,0, "%s %g %g ", i==0?"M":"L", 51.5 + (973.5-51.5) / ramp_size * i, 973.5 - r_ramp[i]/65535.0 * (973.5-51.5) );
+      oyjlStringAdd( &svg, 0,0, " \"/>\n" );
+      /* green curve */
+      oyjlStringAdd( &svg, 0,0, "<path fill=\"none\" stroke-width=\"4\" stroke-linecap=\"butt\" stroke-linejoin=\"miter\" stroke=\"rgb(0%, 100%, 0%)\" d=\"");
+      for(i=0; i<ramp_size; i++)
+        oyjlStringAdd( &svg, 0,0, "%s %g %g ", i==0?"M":"L", 51.5 + (973.5-51.5) / ramp_size * i, 973.5 - g_ramp[i]/65535.0 * (973.5-51.5) );
+      oyjlStringAdd( &svg, 0,0, " \"/>\n" );
+      /* blue curve */
+      oyjlStringAdd( &svg, 0,0, "<path fill=\"none\" stroke-width=\"4\" stroke-linecap=\"butt\" stroke-linejoin=\"miter\" stroke=\"rgb(0%, 0%, 100%)\" d=\"");
+      for(i=0; i<ramp_size; i++)
+        oyjlStringAdd( &svg, 0,0, "%s %g %g ", i==0?"M":"L", 51.5 + (973.5-51.5) / ramp_size * i, 973.5 - b_ramp[i]/65535.0 * (973.5-51.5) );
+      oyjlStringAdd( &svg, 0,0, " \"/>\n" );
+      /* close */
+      oyjlStringAdd( &svg, 0,0, "</svg>\n" );
+#ifdef OYJL_HAVE_LOCALE_H
+      setlocale(LC_NUMERIC, save_locale);
+      if(save_locale) free( save_locale );
+#endif
+      fputs( svg, stdout );
+      free(svg);
+    }
+    else
+    {
+      for(i=0; i<ramp_size; i++)
+        fprintf(stdout,"%d %d %d\n", r_ramp[i], g_ramp[i], b_ramp[i]);
+    }
+  }
 
   if(!donothing) {
     /* write gamma ramp to X-server */
@@ -1208,13 +1405,13 @@ main (int argc, char *argv[])
       fglrx_gammaramps.GGamma[i] = g_ramp[i] >> 6;
       fglrx_gammaramps.BGamma[i] = b_ramp[i] >> 6;
     }
-    if (!FGLRX_X11SetGammaRamp_C16native_1024(dpy, screen, controller, ramp_size, &fglrx_gammaramps))
+    if (!FGLRX_X11SetGammaRamp_C16native_1024(dpy, scr, controller, ramp_size, &fglrx_gammaramps))
 # else
     if(xrr_version >= 102)
     {
       XRRCrtcGamma * gamma = XRRAllocGamma (ramp_size);
       if(!gamma)
-        warning ("Unable to calibrate display");
+        warning ("Unable to calibrate display", output);
       else
       {
         for(i=0; i < ramp_size; ++i)
@@ -1227,15 +1424,15 @@ main (int argc, char *argv[])
         XRRFreeGamma (gamma);
       }
     } else
-    if (!XF86VidModeSetGammaRamp (dpy, screen, ramp_size, r_ramp, g_ramp, b_ramp))
+    if (!XF86VidModeSetGammaRamp (dpy, scr, ramp_size, r_ramp, g_ramp, b_ramp))
 # endif
 #else
     if (!SetDeviceGammaRamp(hDc, &winGammaRamp))
 #endif
-      warning ("Unable to calibrate display");
+      warning ("Unable to calibrate display", output);
   }
 
-  message ("X-LUT size:      \t%d\n", ramp_size);
+  message ("X-LUT size:      \t%d", ramp_size);
 
   free(r_ramp);
   free(g_ramp);
@@ -1248,48 +1445,85 @@ cleanupX:
       XCloseDisplay (dpy);
 #endif
 
+  }
+  else error = 1;
+
+  clean_main:
+  {
+    int i = 0;
+    while(oarray[i].type[0])
+    {
+      if(oarray[i].value_type == oyjlOPTIONTYPE_CHOICE && oarray[i].values.choices.list)
+        free(oarray[i].values.choices.list);
+      ++i;
+    }
+  }
+  oyjlUi_Release( &ui );
+
+  return error;
+}
+
+extern int * oyjl_debug;
+char ** environment = NULL;
+int main( int argc_, char**argv_, char ** envv )
+{
+  int argc = argc_;
+  char ** argv = argv_;
+  oyjlTranslation_s * trc_ = NULL;
+  const char * loc = NULL;
+  const char * lang;
+
+#ifdef __ANDROID__
+  argv = calloc( argc + 2, sizeof(char*) );
+  memcpy( argv, argv_, (argc + 2) * sizeof(char*) );
+  argv[argc++] = "--render=gui"; /* start Renderer (e.g. QML) */
+  environment = environ;
+#else
+  environment = envv;
+#endif
+
+  /* language needs to be initialised before setup of data structures */
+  int use_gettext = 0;
+#ifdef OYJL_HAVE_LIBINTL_H
+  use_gettext = 1;
+#endif
+#ifdef OYJL_HAVE_LOCALE_H
+  loc = oyjlSetLocale(LC_ALL,"");
+#endif
+  lang = getenv("LANG");
+  if(!loc)
+  {
+    loc = lang;
+    fprintf( stderr, "%s", oyjlTermColor(oyjlRED,"Usage Error:") );
+    fprintf( stderr, " Environment variable possibly not correct. Translations might fail - LANG=%s\n", oyjlTermColor(oyjlBOLD,lang) );
+  }
+  if(lang)
+    loc = lang;
+
+  if(loc)
+  {
+    const char * my_domain = MY_DOMAIN;
+# include "xcalib.i18n.h"
+    int size = sizeof(xcalib_i18n_oiJS);
+    oyjl_val static_catalog = (oyjl_val) oyjlStringAppendN( NULL, (const char*) xcalib_i18n_oiJS, size, malloc );
+    if(my_domain && strcmp(my_domain,"oyjl") == 0)
+      my_domain = NULL;
+    trc = trc_ = oyjlTranslation_New( loc, my_domain, &static_catalog, 0,0,0,0 );
+  }
+  oyjlInitLanguageDebug( "xcalib", NULL, NULL, use_gettext, NULL, NULL, &trc_, NULL );
+  if(MY_DOMAIN && strcmp(MY_DOMAIN,"oyjl") == 0)
+    trc = oyjlTranslation_Get( MY_DOMAIN );
+
+  myMain(argc, (const char **)argv);
+
+  oyjlTranslation_Release( &trc_ );
+  oyjlLibRelease();
+
+#ifdef __ANDROID__
+  free( argv );
+#endif
+
   return 0;
 }
 
-/* Basic printf type error() and warning() routines */
-
-/* errors are printed to stderr */
-void
-error (char *fmt, ...)
-{
-  va_list args;
-
-  fprintf (stderr, "Error - ");
-  va_start (args, fmt);
-  vfprintf (stderr, fmt, args);
-  va_end (args);
-  fprintf (stderr, "\n");
-  exit (-1);
-}
-
-/* warnings are printed to stdout */
-void
-warning (char *fmt, ...)
-{
-  va_list args;
-
-  fprintf (stdout, "Warning - ");
-  va_start (args, fmt);
-  vfprintf (stdout, fmt, args);
-  va_end (args);
-  fprintf (stdout, "\n");
-}
-
-/* messages are printed only if the verbose flag is set */
-void
-message (char *fmt, ...)
-{
-  va_list args;
-
-  if(xcalib_state.verbose) {
-  va_start (args, fmt);
-  vfprintf (stdout, fmt, args);
-  va_end (args);
-  }
-}
 
