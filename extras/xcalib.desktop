@@ -1,0 +1,20 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=xcalib
+
+Comment=Assign the VCGT curves of a ICC profile to a screen
+Comment[de]=Weise die VCGT Kurven aus einem ICC Profil einem Bildschirm zu
+GenericName=Monitor Calibration Loader
+GenericName[de_DE]=Monitor Kalibrationseinrichter
+
+Categories=Graphics;Viewer;
+
+Exec=xcalib --render=gui
+TryExec=xcalib
+
+Icon=xcalib
+
+StartupNotify=false
+Terminal=false
+Type=Application
+X-KDE-SubstituteUID=false
