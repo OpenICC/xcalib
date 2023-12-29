@@ -1,4 +1,4 @@
-# xcalib 0.10
+# xcalib 0.11
 (c) 2004-2007 Stefan Döhla <stefan AT doehla DOT de>
 This program is GPL-licensed **postcardware!** More infos at end of README.
 This program comes with ABSOLUTELY NO WARRANTY! Use on your own risk.
@@ -11,31 +11,7 @@ can be used as a free alternative to other calibration loaders.
 
 ### usage
 
-    xcalib [-options] ICCPROFILE
-or
-
-    xcalib [-options] -alter
-
-where the available options are:
-
-* -display <host:dpy>     or -d
-* -screen <screen-#>      or -s
-* -output <output-#>      or -o
-* -clear                  or -c
-* -noaction <LUT-size>    or -n
-* -verbose                or -v
-* -printramps             or -p
-* -loss                   or -l
-* -invert                 or -i
-* -gammacor <gamma>       or -gc
-* -brightness <percent>   or -b
-* -contrast <percent>     or -co
-* -red <gamma> <brightness-percent> <contrast-percent>
-* -green <gamma> <brightness-percent> <contrast-percent>
-* -blue <gamma> <brightness-percent> <contrast-percent>
-* -alter                  or -a
-* -help                   or -h
-* -version
+[xcalib Tool Syntax](docs/md/xcalib.md)[de](docs/md/xcalibde.md)
 
 last parameter MUST be an ICC profile containing a vcgt or mLUT tag
 or empty if the "-a" or "-alter" paramter is used or the LUT is to
@@ -373,7 +349,7 @@ ressources:
 * [Little CMS](http://www.littlecms.com)
 * [ArgyllCMS](http://www.argyllcms.com)
 * [coloraid](http://www.coloraid.de)
-* [Kai-Uwe Behrmann](http://www.behrmann.name)
+* [Oyranos](https://gitlab.com/oyranos)
 * [LProf](http://lprof.sourceforge.net)
 
 ### license
@@ -388,6 +364,6 @@ program, send me a picture postcard from your country/area to:
     GERMANY
 
 Please write on it your name and email-address and that you use
-xcalib-0.8 .
+xcalib-0.11 .
 
 EOF
