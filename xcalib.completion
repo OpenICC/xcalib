@@ -1,0 +1,253 @@
+_xcalib()
+{
+    local cur prev words cword
+    _init_completion -s || return
+
+    #set -x -v
+
+    local SEARCH=${COMP_WORDS[COMP_CWORD]}
+    if [[ "$SEARCH" == "=" ]]; then
+      SEARCH=""
+    fi
+
+    : "autocomplete options with choices for long options "$prev""
+    case "$prev" in
+        --display) # long option with dynamic args
+            local OYJL_TEXTS
+            if [[ "${COMP_WORDS[COMP_CWORD]}" == "=" ]]; then
+              OYJL_TEXTS=$(${COMP_LINE}oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            else
+              OYJL_TEXTS=$(${COMP_LINE} --display=oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            fi
+            local IFS=$'\n'
+            local WORD_LIST=()
+            for OYJL_TEXT in $OYJL_TEXTS
+              do WORD_LIST=("${WORD_LIST[@]}" "$OYJL_TEXT")
+            done
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$cur"))
+            set +x +v
+            return
+            ;;
+        --screen) # long option with dynamic args
+            local OYJL_TEXTS
+            if [[ "${COMP_WORDS[COMP_CWORD]}" == "=" ]]; then
+              OYJL_TEXTS=$(${COMP_LINE}oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            else
+              OYJL_TEXTS=$(${COMP_LINE} --screen=oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            fi
+            local IFS=$'\n'
+            local WORD_LIST=()
+            for OYJL_TEXT in $OYJL_TEXTS
+              do WORD_LIST=("${WORD_LIST[@]}" "$OYJL_TEXT")
+            done
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$cur"))
+            set +x +v
+            return
+            ;;
+        --output) # long option with dynamic args
+            local OYJL_TEXTS
+            if [[ "${COMP_WORDS[COMP_CWORD]}" == "=" ]]; then
+              OYJL_TEXTS=$(${COMP_LINE}oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            else
+              OYJL_TEXTS=$(${COMP_LINE} --output=oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            fi
+            local IFS=$'\n'
+            local WORD_LIST=()
+            for OYJL_TEXT in $OYJL_TEXTS
+              do WORD_LIST=("${WORD_LIST[@]}" "$OYJL_TEXT")
+            done
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$cur"))
+            set +x +v
+            return
+            ;;
+        --printramps) # long option with static args
+            local IFS=$'\n'
+            local WORD_LIST=('TEXT' 'SVG')
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$cur"))
+            set +x +v
+            return
+            ;;
+        --help) # long option with static args
+            local IFS=$'\n'
+            local WORD_LIST=('-' 'synopsis')
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$cur"))
+            set +x +v
+            return
+            ;;
+        --export) # long option with static args
+            local IFS=$'\n'
+            local WORD_LIST=('man' 'markdown' 'json' 'json+command' 'export')
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$cur"))
+            set +x +v
+            return
+            ;;
+    esac
+    : "autocomplete options with choices for single letter options "$cur""
+    case "$cur" in
+        -d=*) # single letter option with dynamic args
+            local OYJL_TEXTS
+            if [[ "${COMP_WORDS[COMP_CWORD]}" == "=" ]]; then
+              OYJL_TEXTS=$(${COMP_LINE}oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            else
+              OYJL_TEXTS=$(${COMP_LINE} -d=oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            fi
+            local IFS=$'\n'
+            local WORD_LIST=()
+            for OYJL_TEXT in $OYJL_TEXTS
+              do WORD_LIST=("${WORD_LIST[@]}" "$OYJL_TEXT")
+            done
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$SEARCH"))
+            set +x +v
+            return
+            ;;
+        -s=*) # single letter option with dynamic args
+            local OYJL_TEXTS
+            if [[ "${COMP_WORDS[COMP_CWORD]}" == "=" ]]; then
+              OYJL_TEXTS=$(${COMP_LINE}oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            else
+              OYJL_TEXTS=$(${COMP_LINE} -s=oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            fi
+            local IFS=$'\n'
+            local WORD_LIST=()
+            for OYJL_TEXT in $OYJL_TEXTS
+              do WORD_LIST=("${WORD_LIST[@]}" "$OYJL_TEXT")
+            done
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$SEARCH"))
+            set +x +v
+            return
+            ;;
+        -o=*) # single letter option with dynamic args
+            local OYJL_TEXTS
+            if [[ "${COMP_WORDS[COMP_CWORD]}" == "=" ]]; then
+              OYJL_TEXTS=$(${COMP_LINE}oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            else
+              OYJL_TEXTS=$(${COMP_LINE} -o=oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+            fi
+            local IFS=$'\n'
+            local WORD_LIST=()
+            for OYJL_TEXT in $OYJL_TEXTS
+              do WORD_LIST=("${WORD_LIST[@]}" "$OYJL_TEXT")
+            done
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$SEARCH"))
+            set +x +v
+            return
+            ;;
+        -p=*) # single letter option with static args
+            local IFS=$'\n'
+            local WORD_LIST=('TEXT' 'SVG')
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$SEARCH"))
+            set +x +v
+            return
+            ;;
+        -h=*) # single letter option with static args
+            local IFS=$'\n'
+            local WORD_LIST=('-' 'synopsis')
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$SEARCH"))
+            set +x +v
+            return
+            ;;
+        -X=*) # single letter option with static args
+            local IFS=$'\n'
+            local WORD_LIST=('man' 'markdown' 'json' 'json+command' 'export')
+            COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$SEARCH"))
+            set +x +v
+            return
+            ;;
+    esac
+
+
+    : "autocomplete options "$cur""
+    case "$cur" in
+        -d|-s|-o|-p|-g|-b|-k|-R|-S|-T|-G|-H|-I|-B|-C|-D|-h|-X)
+            : "finish short options with choices"
+            COMPREPLY=("$cur=\"")
+            set +x +v
+            return
+            ;;
+        --display|--screen|--output|--printramps|--gamma|--brightness|--contrast|--red-gamma|--red-brightness|--red-contrast|--green-gamma|--green-brightness|--green-contrast|--blue-gamma|--blue-brightness|--blue-contrast|--help|--render|--export)
+            : "finish long options with choices"
+            COMPREPLY=("$cur=\"")
+            set +x +v
+            return
+            ;;
+        -c|-i|-a|-n|-l|-v|-V)
+            : "finish short options without choices"
+            COMPREPLY=("$cur ")
+            set +x +v
+            return
+            ;;
+        --clear|--invert|--alter|--noaction|--loss|--synopsis|--verbose|--version)
+            : "finish long options without choices"
+            COMPREPLY=("$cur ")
+            set +x +v
+            return
+            ;;
+    esac
+
+
+    : "show help for none '@' UIs"
+    if [[ "$cur" == "" ]]; then
+      if [[ ${COMP_WORDS[1]} == "" ]]; then
+        $1 help synopsis 1>&2
+      else
+        $1 help ${COMP_WORDS[1]} 1>&2
+      fi
+    fi
+
+
+    : "suggest group options for subcommands"
+    if [[ "$cur" == "" ]] || [[ "$cur" == "-" ]] || [[ "$cur" == -- ]] || [[ "$cur" == -* ]]; then
+      case "${COMP_WORDS[1]}" in
+        -c|--clear|-d|--display|-s|--screen)
+          COMPREPLY=($(compgen -W '-o= --output= -v --verbose' -- "$cur"))
+            set +x +v
+            return
+            ;;
+        -i|--invert|-d|--display|-s|--screen|-a|--alter)
+          COMPREPLY=($(compgen -W '-o= --output= -v --verbose -n --noaction -p= --printramps= -l --loss' -- "$cur"))
+            set +x +v
+            return
+            ;;
+        -g|--gamma|-b|--brightness|-k|--contrast|-d|--display|-s|--screen|-a|--alter)
+          COMPREPLY=($(compgen -W '-o= --output= -v --verbose -n --noaction -p= --printramps= -l --loss' -- "$cur"))
+            set +x +v
+            return
+            ;;
+        -R|--red-gamma|-G|--green-gamma|-B|--blue-gamma|-d|--display|-s|--screen|-a|--alter)
+          COMPREPLY=($(compgen -W '-S= --red-brightness= -T= --red-contrast= -H= --green-brightness= -I= --green-contrast= -C= --blue-brightness= -D= --blue-contrast= -o= --output= -v --verbose -n --noaction -p= --printramps= -l --loss' -- "$cur"))
+            set +x +v
+            return
+            ;;
+        -p|--printramps|-d|--display|-s|--screen)
+          COMPREPLY=($(compgen -W '-o= --output= -v --verbose' -- "$cur"))
+            set +x +v
+            return
+            ;;
+        -h|--help|-V|--version|--render)
+          COMPREPLY=($(compgen -W '-v --verbose' -- "$cur"))
+            set +x +v
+            return
+            ;;
+      esac
+    fi
+
+    : "suggest mandatory options on first args only"
+    if [[ "${COMP_WORDS[2]}" == "" ]]; then
+      local WORD_LIST=()
+      local OYJL_TEXTS=$(${COMP_LINE} oyjl-list | sed 's/\[/_/g;s/\]/_/g')
+      local IFS=$'\n'
+      for OYJL_TEXT in $OYJL_TEXTS
+        do WORD_LIST=("${WORD_LIST[@]}"
+"$OYJL_TEXT")
+      done
+      WORD_LIST=("${WORD_LIST[@]}" -c --clear -d= --display= -s= --screen= -i --invert -d= --display= -s= --screen= -a --alter -g= --gamma= -b= --brightness= -k= --contrast= -d= --display= -s= --screen= -a --alter -R= --red-gamma= -G= --green-gamma= -B= --blue-gamma= -d= --display= -s= --screen= -a --alter -p= --printramps= -d= --display= -s= --screen= -h= --help= -V --version --render=)
+      COMPREPLY=($(compgen -W '"${WORD_LIST[@]}"' -- "$cur"))
+      set +x +v
+      return
+    fi
+
+    set +x +v
+} &&
+complete -o nosort -F _xcalib -o nospace xcalib
+
+
