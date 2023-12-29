@@ -11,7 +11,7 @@ can be used as a free alternative to other calibration loaders.
 
 ### usage
 
-[xcalib Tool Syntax](docs/md/xcalib.md)[de](docs/md/xcalibde.md)
+[xcalib Tool Syntax](docs/md/xcalib.md) [de](docs/md/xcalibde.md)
 
 last parameter MUST be an ICC profile containing a vcgt or mLUT tag
 or empty if the "-a" or "-alter" paramter is used or the LUT is to
