@@ -1,0 +1,158 @@
+.TH "xcalib" 1 "14. Dezember 2023" "User Commands"
+.SH NAME
+xcalib v0.11.0 \- Monitor Kalibrationseinrichter
+.SH ÜBERSICHT
+\fBxcalib\fR ICC_DATEI_NAME
+.br
+\fBxcalib\fR \fB\-c\fR \fB\-d\fR \fITEXT\fR \fB\-s\fR \fINUMMER\fR [\fB\-o\fR \fINUMMER\fR] [\fB\-v\fR]
+.br
+\fBxcalib\fR \fB\-i\fR \fB\-d\fR \fITEXT\fR \fB\-s\fR \fINUMMER\fR [\fB\-o\fR \fINUMMER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_DATEI_NAME | \fB\-a\fR
+.br
+\fBxcalib\fR \fB\-g\fR \fINUMMER\fR \fB\-b\fR \fINUMMER\fR \fB\-k\fR \fINUMMER\fR \fB\-d\fR \fITEXT\fR \fB\-s\fR \fINUMMER\fR [\fB\-o\fR \fINUMMER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_DATEI_NAME | \fB\-a\fR
+.br
+\fBxcalib\fR \fB\-R\fR \fINUMMER\fR \fB\-G\fR \fINUMMER\fR \fB\-B\fR \fINUMMER\fR \fB\-d\fR \fITEXT\fR \fB\-s\fR \fINUMMER\fR [\fB\-S\fR \fINUMMER\fR] [\fB\-T\fR \fINUMMER\fR] [\fB\-H\fR \fINUMMER\fR] [\fB\-I\fR \fINUMMER\fR] [\fB\-C\fR \fINUMMER\fR] [\fB\-D\fR \fINUMMER\fR] [\fB\-o\fR \fINUMMER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_DATEI_NAME | \fB\-a\fR
+.br
+\fBxcalib\fR \fB\-p\fR\fI[=FORMAT]\fR \fB\-d\fR \fITEXT\fR \fB\-s\fR \fINUMMER\fR [\fB\-o\fR \fINUMMER\fR] [\fB\-v\fR]
+.br
+\fBxcalib\fR \fB\-h\fR\fI[=synopsis|...]\fR \fB\-V\fR \fB\-\-render\fR \fITEXT\fR [\fB\-v\fR]
+.SH BESCHREIBUNG
+Das Werkzeug lädt den vcgt-Tag eines ICC Farbprofils in den Bildserver mit der XRandR/XVidMode/GDI Erweiterung um die Grafikkarte passend zum Monitor farblich zu kalibrieren.
+.SH OPTIONEN
+.SS
+Grundlegende Einstellungen
+.br
+\fB\-d\fR|\fB\-\-display\fR \fITEXT\fR	host:dpy
+.br
+\fB\-s\fR|\fB\-\-screen\fR \fINUMMER\fR	Ausgabenummer
+.br
+\fB\-o\fR|\fB\-\-output\fR \fINUMMER\fR	Anschluss Nummer
+.RS
+Erscheint in der Reihenfolge wie im xrandr Werkzeug.
+.RE
+\fB\-a\fR|\fB\-\-alter\fR	Andere Tabelle
+.RS
+Arbeitet alternativ zu einem ICC Profil nur mit den Parametern.
+.RE
+\fB\-n\fR|\fB\-\-noaction\fR	Belasse die Gamma Tabelle
+.RS
+Arbeitet am besten zusammen mit der -v Option.
+.RE
+\fB\-p\fR|\fB\-\-printramps\fR\fI[=FORMAT]\fR	Zeige Werte auf der Standardausgabe stdout
+.br
+	\fB\-p\fR TEXT		# TEXT
+.br
+	\fB\-p\fR SVG		# SVG
+.br
+\fB\-l\fR|\fB\-\-loss\fR	Zeige Verluste durch die Anwendung der Kurven auf stdout.
+.br
+.SS
+Zuweisen
+\fBxcalib\fR ICC_DATEI_NAME
+.br
+\fIICC_DATEI_NAME\fR	Dateiname eines ICC Farbprofiles
+.br
+.SS
+Zurücksetzen
+\fBxcalib\fR \fB\-c\fR \fB\-d\fR \fITEXT\fR \fB\-s\fR \fINUMMER\fR [\fB\-o\fR \fINUMMER\fR] [\fB\-v\fR]
+.br
+\fB\-c\fR|\fB\-\-clear\fR	Setze Gamma Tabelle zurück
+.RS
+Setze die Video Card Gamma Tablle (VCGT) auf lineare Werte.
+.RE
+.SS
+Umkehren
+\fBxcalib\fR \fB\-i\fR \fB\-d\fR \fITEXT\fR \fB\-s\fR \fINUMMER\fR [\fB\-o\fR \fINUMMER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_DATEI_NAME | \fB\-a\fR
+.br
+\fB\-i\fR|\fB\-\-invert\fR	Kehre die Gamma Tabelle um
+.br
+.SS
+Allgemeine Farbanpassung
+\fBxcalib\fR \fB\-g\fR \fINUMMER\fR \fB\-b\fR \fINUMMER\fR \fB\-k\fR \fINUMMER\fR \fB\-d\fR \fITEXT\fR \fB\-s\fR \fINUMMER\fR [\fB\-o\fR \fINUMMER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_DATEI_NAME | \fB\-a\fR
+.br
+\fB\-g\fR|\fB\-\-gamma\fR \fINUMMER\fR	Setze Gamma Kurve (NUMMER:1 [≥0,1 ≤5 Δ0,1])
+.RS
+Global gamma correction value (use 2.2 for WinXP Color Control-like behaviour)
+.RE
+\fB\-b\fR|\fB\-\-brightness\fR \fINUMMER\fR	Setze Helligkeit in Prozent (NUMMER:0 [≥0 ≤99 Δ1])
+.br
+\fB\-k\fR|\fB\-\-contrast\fR \fINUMMER\fR	Setze Kontrast in Prozent (NUMMER:100 [≥1 ≤100 Δ1])
+.RS
+Setze den maxmalen Werten im Verhältnis zur Helligkeit.
+.RE
+.SS
+Farbanpassung pro Farbkanal
+\fBxcalib\fR \fB\-R\fR \fINUMMER\fR \fB\-G\fR \fINUMMER\fR \fB\-B\fR \fINUMMER\fR \fB\-d\fR \fITEXT\fR \fB\-s\fR \fINUMMER\fR [\fB\-S\fR \fINUMMER\fR] [\fB\-T\fR \fINUMMER\fR] [\fB\-H\fR \fINUMMER\fR] [\fB\-I\fR \fINUMMER\fR] [\fB\-C\fR \fINUMMER\fR] [\fB\-D\fR \fINUMMER\fR] [\fB\-o\fR \fINUMMER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_DATEI_NAME | \fB\-a\fR
+.br
+\fB\-R\fR|\fB\-\-red-gamma\fR \fINUMMER\fR	Setze Rote Gamma Kurve (NUMMER:1 [≥0,1 ≤5 Δ0,1])
+.br
+\fB\-S\fR|\fB\-\-red-brightness\fR \fINUMMER\fR	Setze Rote Helligkeit in Prozent (NUMMER:0 [≥0 ≤99 Δ1])
+.br
+\fB\-T\fR|\fB\-\-red-contrast\fR \fINUMMER\fR	Setze Roten Kontrast in Prozent (NUMMER:100 [≥1 ≤100 Δ1])
+.RS
+Setze den maxmalen Werten im Verhältnis zur Helligkeit.
+.RE
+\fB\-G\fR|\fB\-\-green-gamma\fR \fINUMMER\fR	Setze Grüne Gamma Kurve (NUMMER:1 [≥0,1 ≤5 Δ0,1])
+.br
+\fB\-H\fR|\fB\-\-green-brightness\fR \fINUMMER\fR	Setze Grüne Helligkeit in Prozent (NUMMER:0 [≥0 ≤99 Δ1])
+.br
+\fB\-I\fR|\fB\-\-green-contrast\fR \fINUMMER\fR	Setze Grünen Kontrast in Prozent (NUMMER:100 [≥1 ≤100 Δ1])
+.RS
+Setze den maxmalen Werten im Verhältnis zur Helligkeit.
+.RE
+\fB\-B\fR|\fB\-\-blue-gamma\fR \fINUMMER\fR	Setze Blaue Gamma Kurve (NUMMER:1 [≥0,1 ≤5 Δ0,1])
+.br
+\fB\-C\fR|\fB\-\-blue-brightness\fR \fINUMMER\fR	Setze Blaue Helligkeit in Prozent (NUMMER:0 [≥0 ≤99 Δ1])
+.br
+\fB\-D\fR|\fB\-\-blue-contrast\fR \fINUMMER\fR	Setze Blauen Kontrast in Prozent (NUMMER:100 [≥1 ≤100 Δ1])
+.RS
+Setze den maxmalen Werten im Verhältnis zur Helligkeit.
+.RE
+.SS
+Show
+\fBxcalib\fR \fB\-p\fR\fI[=FORMAT]\fR \fB\-d\fR \fITEXT\fR \fB\-s\fR \fINUMMER\fR [\fB\-o\fR \fINUMMER\fR] [\fB\-v\fR]
+.br
+\fB\-p\fR|\fB\-\-printramps\fR\fI[=FORMAT]\fR	Zeige Werte auf der Standardausgabe stdout
+.br
+	\fB\-p\fR TEXT		# TEXT
+.br
+	\fB\-p\fR SVG		# SVG
+.br
+.SS
+Allgemeine Optionen
+\fBxcalib\fR \fB\-h\fR\fI[=synopsis|...]\fR \fB\-V\fR \fB\-\-render\fR \fITEXT\fR [\fB\-v\fR]
+.br
+\fB\-h\fR|\fB\-\-help\fR\fI[=synopsis|...]\fR	Zeige Hilfetext an
+.RS
+Zeige Benutzungsinformationen und Hinweise für das Werkzeug.
+.RE
+	\fB\-h\fR -		# Vollständige Hilfe : Zeige Hilfe für alle Gruppen
+.br
+	\fB\-h\fR synopsis		# Übersicht : Liste Gruppen - Zeige alle Gruppen mit Syntax
+.br
+\fB\-\-render\fR \fITEXT\fR	Darstellung	
+.br
+\fB\-V\fR|\fB\-\-version\fR	Version
+.br
+\fB\-v\fR|\fB\-\-verbose\fR	Plaudernd
+.br
+.SH UMGEBUNGSVARIABLEN
+.TP
+DISPLAY
+.br
+Diese Variable enthält den Ausgabenamen unter X11 Systemen wie für die -d und -s Optionen benutzt.
+.SH BEISPIELE
+.TP
+Weise die VCGT Kurven aus einem ICC Profil einem Bildschirm zu
+.br
+xcalib ‐d :0 ‐s 0 ‐v profil_mit_vcgt_tag.icc
+.TP
+Setze die Geräte-LUT einer Anzeige für eine Kalibration zurück.
+.br
+xcalib ‐d :0 ‐s 0 ‐c
+.SH SIEHE AUCH
+.TP
+oyjl-args(1)
+.br
+.SH AUTOR
+Stefan Dohla <stefan AT doehla DOT de> http://www.etg.e‐technik.uni‐erlangen.de/web/doe/xcalib/
+

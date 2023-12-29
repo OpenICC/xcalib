@@ -1,0 +1,158 @@
+.TH "xcalib" 1 "December 14, 2023" "User Commands"
+.SH NAME
+xcalib v0.11.0 \- Monitor Calibration Loader
+.SH SYNOPSIS
+\fBxcalib\fR ICC_FILE_NAME
+.br
+\fBxcalib\fR \fB\-c\fR \fB\-d\fR \fISTRING\fR \fB\-s\fR \fINUMBER\fR [\fB\-o\fR \fINUMBER\fR] [\fB\-v\fR]
+.br
+\fBxcalib\fR \fB\-i\fR \fB\-d\fR \fISTRING\fR \fB\-s\fR \fINUMBER\fR [\fB\-o\fR \fINUMBER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_FILE_NAME | \fB\-a\fR
+.br
+\fBxcalib\fR \fB\-g\fR \fINUMBER\fR \fB\-b\fR \fINUMBER\fR \fB\-k\fR \fINUMBER\fR \fB\-d\fR \fISTRING\fR \fB\-s\fR \fINUMBER\fR [\fB\-o\fR \fINUMBER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_FILE_NAME | \fB\-a\fR
+.br
+\fBxcalib\fR \fB\-R\fR \fINUMBER\fR \fB\-G\fR \fINUMBER\fR \fB\-B\fR \fINUMBER\fR \fB\-d\fR \fISTRING\fR \fB\-s\fR \fINUMBER\fR [\fB\-S\fR \fINUMBER\fR] [\fB\-T\fR \fINUMBER\fR] [\fB\-H\fR \fINUMBER\fR] [\fB\-I\fR \fINUMBER\fR] [\fB\-C\fR \fINUMBER\fR] [\fB\-D\fR \fINUMBER\fR] [\fB\-o\fR \fINUMBER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_FILE_NAME | \fB\-a\fR
+.br
+\fBxcalib\fR \fB\-p\fR\fI[=FORMAT]\fR \fB\-d\fR \fISTRING\fR \fB\-s\fR \fINUMBER\fR [\fB\-o\fR \fINUMBER\fR] [\fB\-v\fR]
+.br
+\fBxcalib\fR \fB\-h\fR\fI[=synopsis|...]\fR \fB\-V\fR \fB\-\-render\fR \fISTRING\fR [\fB\-v\fR]
+.SH DESCRIPTION
+The tool loads ’vcgt’‐tag of ICC profiles to the server using the XRandR/XVidMode/GDI Extension in order to load calibrate curves to your graphics card.
+.SH OPTIONS
+.SS
+Set basic parameters
+.br
+\fB\-d\fR|\fB\-\-display\fR \fISTRING\fR	host:dpy
+.br
+\fB\-s\fR|\fB\-\-screen\fR \fINUMBER\fR	Screen Number
+.br
+\fB\-o\fR|\fB\-\-output\fR \fINUMBER\fR	Output Number
+.RS
+It appears in the order as listed in xrandr tool.
+.RE
+\fB\-a\fR|\fB\-\-alter\fR	Alter Table
+.RS
+Works according to parameters without ICC Profile.
+.RE
+\fB\-n\fR|\fB\-\-noaction\fR	Do not alter video-LUTs.
+.RS
+Work's best in conjunction with -v!
+.RE
+\fB\-p\fR|\fB\-\-printramps\fR\fI[=FORMAT]\fR	Print Values on stdout.
+.br
+	\fB\-p\fR TEXT		# TEXT
+.br
+	\fB\-p\fR SVG		# SVG
+.br
+\fB\-l\fR|\fB\-\-loss\fR	Print error introduced by applying ramps to stdout.
+.br
+.SS
+Assign
+\fBxcalib\fR ICC_FILE_NAME
+.br
+\fIICC_FILE_NAME\fR	File Name of a ICC Profile
+.br
+.SS
+Clear
+\fBxcalib\fR \fB\-c\fR \fB\-d\fR \fISTRING\fR \fB\-s\fR \fINUMBER\fR [\fB\-o\fR \fINUMBER\fR] [\fB\-v\fR]
+.br
+\fB\-c\fR|\fB\-\-clear\fR	Clear Gamma LUT
+.RS
+Reset the Video Card Gamma Table (VCGT) to linear values.
+.RE
+.SS
+Invert
+\fBxcalib\fR \fB\-i\fR \fB\-d\fR \fISTRING\fR \fB\-s\fR \fINUMBER\fR [\fB\-o\fR \fINUMBER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_FILE_NAME | \fB\-a\fR
+.br
+\fB\-i\fR|\fB\-\-invert\fR	Invert the LUT
+.br
+.SS
+Overall Appearance
+\fBxcalib\fR \fB\-g\fR \fINUMBER\fR \fB\-b\fR \fINUMBER\fR \fB\-k\fR \fINUMBER\fR \fB\-d\fR \fISTRING\fR \fB\-s\fR \fINUMBER\fR [\fB\-o\fR \fINUMBER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_FILE_NAME | \fB\-a\fR
+.br
+\fB\-g\fR|\fB\-\-gamma\fR \fINUMBER\fR	Specify Gamma (NUMBER:1 [≥0.1 ≤5 Δ0.1])
+.RS
+Global gamma correction value (use 2.2 for WinXP Color Control-like behaviour)
+.RE
+\fB\-b\fR|\fB\-\-brightness\fR \fINUMBER\fR	Specify Lightness Percentage (NUMBER:0 [≥0 ≤99 Δ1])
+.br
+\fB\-k\fR|\fB\-\-contrast\fR \fINUMBER\fR	Specify Contrast Percentage (NUMBER:100 [≥1 ≤100 Δ1])
+.RS
+Set maximum value relative to brightness.
+.RE
+.SS
+Per Channel Appearance
+\fBxcalib\fR \fB\-R\fR \fINUMBER\fR \fB\-G\fR \fINUMBER\fR \fB\-B\fR \fINUMBER\fR \fB\-d\fR \fISTRING\fR \fB\-s\fR \fINUMBER\fR [\fB\-S\fR \fINUMBER\fR] [\fB\-T\fR \fINUMBER\fR] [\fB\-H\fR \fINUMBER\fR] [\fB\-I\fR \fINUMBER\fR] [\fB\-C\fR \fINUMBER\fR] [\fB\-D\fR \fINUMBER\fR] [\fB\-o\fR \fINUMBER\fR] [\fB\-v\fR] [\fB\-n\fR] [\fB\-p\fR\fI[=FORMAT]\fR] [\fB\-l\fR] ICC_FILE_NAME | \fB\-a\fR
+.br
+\fB\-R\fR|\fB\-\-red-gamma\fR \fINUMBER\fR	Specify Red Gamma  (NUMBER:1 [≥0.1 ≤5 Δ0.1])
+.br
+\fB\-S\fR|\fB\-\-red-brightness\fR \fINUMBER\fR	Specify Red Brightness Percentage (NUMBER:0 [≥0 ≤99 Δ1])
+.br
+\fB\-T\fR|\fB\-\-red-contrast\fR \fINUMBER\fR	Specify Red Contrast Percentage (NUMBER:100 [≥1 ≤100 Δ1])
+.RS
+Set maximum value relative to brightness.
+.RE
+\fB\-G\fR|\fB\-\-green-gamma\fR \fINUMBER\fR	Specify Green Gamma  (NUMBER:1 [≥0.1 ≤5 Δ0.1])
+.br
+\fB\-H\fR|\fB\-\-green-brightness\fR \fINUMBER\fR	Specify Green Brightness Percentage (NUMBER:0 [≥0 ≤99 Δ1])
+.br
+\fB\-I\fR|\fB\-\-green-contrast\fR \fINUMBER\fR	Specify Green Contrast Percentage (NUMBER:100 [≥1 ≤100 Δ1])
+.RS
+Set maximum value relative to brightness.
+.RE
+\fB\-B\fR|\fB\-\-blue-gamma\fR \fINUMBER\fR	Specify Blue Gamma  (NUMBER:1 [≥0.1 ≤5 Δ0.1])
+.br
+\fB\-C\fR|\fB\-\-blue-brightness\fR \fINUMBER\fR	Specify Blue Brightness Percentage (NUMBER:0 [≥0 ≤99 Δ1])
+.br
+\fB\-D\fR|\fB\-\-blue-contrast\fR \fINUMBER\fR	Specify Blue Contrast Percentage (NUMBER:100 [≥1 ≤100 Δ1])
+.RS
+Set maximum value relative to brightness.
+.RE
+.SS
+Show
+\fBxcalib\fR \fB\-p\fR\fI[=FORMAT]\fR \fB\-d\fR \fISTRING\fR \fB\-s\fR \fINUMBER\fR [\fB\-o\fR \fINUMBER\fR] [\fB\-v\fR]
+.br
+\fB\-p\fR|\fB\-\-printramps\fR\fI[=FORMAT]\fR	Print Values on stdout.
+.br
+	\fB\-p\fR TEXT		# TEXT
+.br
+	\fB\-p\fR SVG		# SVG
+.br
+.SS
+General options
+\fBxcalib\fR \fB\-h\fR\fI[=synopsis|...]\fR \fB\-V\fR \fB\-\-render\fR \fISTRING\fR [\fB\-v\fR]
+.br
+\fB\-h\fR|\fB\-\-help\fR\fI[=synopsis|...]\fR	Print help text
+.RS
+Show usage information and hints for the tool.
+.RE
+	\fB\-h\fR -		# Full Help : Print help for all groups
+.br
+	\fB\-h\fR synopsis		# Synopsis : List groups - Show all groups including syntax
+.br
+\fB\-\-render\fR \fISTRING\fR	Render	
+.br
+\fB\-V\fR|\fB\-\-version\fR	Version
+.br
+\fB\-v\fR|\fB\-\-verbose\fR	Verbose
+.br
+.SH ENVIRONMENT VARIABLES
+.TP
+DISPLAY
+.br
+Under X11 systems this variable will hold the display name as used for the -d and -s option.
+.SH EXAMPLES
+.TP
+Assign the VCGT curves of a ICC profile to a screen
+.br
+xcalib ‐d :0 ‐s 0 ‐v profile_with_vcgt_tag.icc
+.TP
+Reset a screens hardware LUT in order to do a calibration
+.br
+xcalib ‐d :0 ‐s 0 ‐c
+.SH SEE ALSO
+.TP
+oyjl-args(1)
+.br
+.SH AUTHOR
+Stefan Dohla <stefan AT doehla DOT de> http://www.etg.e‐technik.uni‐erlangen.de/web/doe/xcalib/
+
