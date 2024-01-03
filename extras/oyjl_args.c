@@ -3300,6 +3300,19 @@ oyjlOption_s * oyjlOptions_GetOptionL( oyjlOptions_s     * opts,
 
   return o;
 }
+void oyjlOptions_Print_              ( oyjlOptions_s     * opts,
+                                       int                 pos )
+{
+  int i, is_one_minus_with_multiple_chars = 0;
+  for(i = 0; i < opts->argc; ++i)
+  {
+    fprintf( stderr, "%s ", i == pos ? oyjlTermColor( oyjlBOLD, opts->argv[i] ) : opts->argv[i] );
+    if(i == pos && opts->argv[i][0] == '-' && strlen(opts->argv[i]) > 2)
+      ++is_one_minus_with_multiple_chars;
+  }
+  fprintf( stderr, "\n" );
+}
+
 static oyjlOPTIONSTATE_e oyjlOptions_Check_(
                                        oyjlOptions_s  * opts )
 {
@@ -3331,6 +3344,7 @@ static oyjlOPTIONSTATE_e oyjlOptions_Check_(
     }*/
     if(OYJL_IS_NOT_O("#") && o->value_name && o->value_name[0] && o->value_type == oyjlOPTIONTYPE_NONE)
     {
+      oyjlOptions_Print_( opts, i );
       fputs( oyjlTermColor(oyjlRED,_("Usage Error:")), stderr ); fputs( " ", stderr );
       fprintf( stderr, "%s \'%s\': %s\n", _("Option not supported"), oyjlTermColor(oyjlBOLD,o->o), _("need a value_type") );
       return oyjlOPTION_NOT_SUPPORTED;
@@ -3405,15 +3419,6 @@ char * oyjlOptionsResultValueCopy_   ( const char        * arg,
   return value;
 }
 
-void oyjlOptions_Print_              ( oyjlOptions_s     * opts,
-                                       int                 pos )
-{
-  int i;
-  for(i = 0; i < opts->argc; ++i)
-    fprintf( stderr, "%s ", i == pos ? oyjlTermColor( oyjlBOLD, opts->argv[i] ) : opts->argv[i] );
-  fprintf( stderr, "\n" );
-}
-
 /** @brief    Parse the options into a private data structure
  *  @memberof oyjlOptions_s
  *
@@ -3479,9 +3484,13 @@ oyjlOPTIONSTATE_e oyjlOptions_Parse  ( oyjlOptions_s     * opts )
           o = oyjlOptions_GetOption( opts, arg );
           if( !o )
           {
+            int k;
             oyjlOptions_Print_( opts, i );
             fputs( oyjlTermColor(oyjlRED,_("Usage Error:")), stderr ); fputs( " ", stderr );
-            fprintf( stderr, "%s \'%s\'\n", _("Option not supported"), oyjlTermColor(oyjlBOLD,arg) );
+            fprintf( stderr, "%s \'%s\' -", _("Option not supported"), oyjlTermColor(oyjlBOLD,arg) );
+            for(k = 1; k < l; ++k)
+              fprintf( stderr, "%s", oyjlTermColor(multi_byte_letters[k] == arg?oyjlBOLD:oyjlNO_MARK, multi_byte_letters[k]) );
+            fputs( "\n", stderr );
             state = oyjlOPTION_NOT_SUPPORTED;
             break;
           }
@@ -5029,6 +5038,11 @@ oyjlUi_s *         oyjlUi_FromOptions( const char        * nick,
         {
           fputs( oyjlTermColor(oyjlRED,_("Program Error:")), stderr ); fputs( " ", stderr );
           fprintf( stderr, "%s g[%d]=%s.mandatory=%s[%d](%s)\n", _("This option is not defined"), i, g->name,g->mandatory,j, moption && moption[0]?moption:"---" );
+        }
+        if(o->o && strcmp(o->o, moption) != 0)
+        {
+          fputs( oyjlTermColor(oyjlRED,_("Program Error:")), stderr ); fputs( " ", stderr );
+          fprintf( stderr, "%s g[%d]=%s.mandatory=%s[%d](%s|%s)\n", _("This option is not defined by letter."), i, g->name,g->mandatory,j, moption, oyjlTermColor(oyjlBOLD,o->o) );
         }
         for( k = 0; k  < (results?results->count:0); ++k )
         {
