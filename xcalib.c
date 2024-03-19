@@ -930,8 +930,14 @@ int myMain( int argc, const char ** argv )
   /* X11 */
   XF86VidModeGamma gamma;
   Display *dpy = NULL;
-  char *displayname = display;
+  const char * displayname = display;
   int xoutput = output?atoi(output):0;
+  if(!(displayname && displayname[0]))
+  {
+    displayname = getenv("DISPLAY");
+    if(!(displayname && displayname[0]))
+      error ("Could not read \"DISPLAY\" environment variable");
+  }
 #ifdef FGLRX
   FGLRX_X11Gamma_C16native fglrx_gammaramps;
 #endif
@@ -1053,9 +1059,10 @@ int myMain( int argc, const char ** argv )
   int scr = 0;
   if ((dpy = XOpenDisplay (displayname)) == NULL) {
     if(!donothing)
-      error ("Can't open display %s", XDisplayName (displayname));
+      error ("Can't open display \"%s\"", displayname);
     else
-      warning("Can't open display %s", XDisplayName (displayname));
+      warning("Can't open display \"%s\"", displayname);
+    return 1;
   }
   else if (!screen)
     scr = DefaultScreen (dpy);
